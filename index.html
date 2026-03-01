@@ -872,9 +872,22 @@ async function startWhisperListening() {
 
   const listenBtn = document.getElementById('ai-listen-btn');
   listenBtn.classList.add('listening');
-  if (!isSpeaking) setAIStatus('listening', '🎤 Your turn, Dhamma!');
+  if (!isSpeaking) {
+    if (window._repeatMode) {
+      setAIStatus('listening', '🎤 Say "' + (window._repeatName || '') + '"');
+    } else {
+      setAIStatus('listening', '🧠 Your turn, Dhamma!');
+    }
+  }
 
   try {
+    // On mobile, get a fresh stream for repeat mode to avoid stale mic
+    if (isMobile && window._repeatMode) {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+    }
     if (!mediaStream) {
       mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -882,7 +895,9 @@ async function startWhisperListening() {
     }
 
     // Setup audio analysis for silence detection
-    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioContext || audioContext.state === 'closed') {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
     if (audioContext.state === 'suspended') await audioContext.resume();
     const source = audioContext.createMediaStreamSource(mediaStream);
     analyser = audioContext.createAnalyser();
@@ -962,13 +977,18 @@ async function onRecordingDone() {
 
   if (!isSpeechDetected || audioChunks.length === 0) {
     // No speech detected — restart listening
-    if (aiActive && !answered && !isSpeaking) {
+    if (aiActive && (!answered || window._repeatMode) && !isSpeaking) {
       listenRetries++;
       if (listenRetries <= MAX_LISTEN_RETRIES) {
+        console.log('🔄 No speech, retry', listenRetries);
         setTimeout(() => startWhisperListening(), 500);
       } else {
-        setAIStatus('listening', '🎤 Tap mic to answer!');
+        setAIStatus('listening', window._repeatMode ? '🎤 Say "' + (window._repeatName || '') + '"' : '🎤 Tap Listen to answer!');
         listenRetries = 0;
+        // Keep trying in repeat mode
+        if (window._repeatMode) {
+          setTimeout(() => { listenRetries = 0; startWhisperListening(); }, 1000);
+        }
       }
     }
     return;
@@ -987,15 +1007,15 @@ async function onRecordingDone() {
       processAnswerWrapper([transcript.toLowerCase().trim()]);
     } else {
       // Empty transcript — restart
-      if (aiActive && !answered && !isSpeaking) {
-        setAIStatus('listening', '🎤 I didn\'t catch that, try again!');
+      if (aiActive && (!answered || window._repeatMode) && !isSpeaking) {
+        setAIStatus('listening', window._repeatMode ? '🎤 Say "' + (window._repeatName || '') + '"' : '🎤 I didn\'t catch that, try again!');
         setTimeout(() => startWhisperListening(), 500);
       }
     }
   } catch(e) {
     console.error('Whisper API error:', e);
     setAIStatus('wrong', '⚠️ Whisper error — retrying...');
-    if (aiActive && !answered) {
+    if (aiActive && (!answered || window._repeatMode)) {
       setTimeout(() => startWhisperListening(), 1000);
     }
   }
@@ -1718,15 +1738,32 @@ function processAnswer(transcripts) {
 
 function listenForRepeat(name) {
   answered = false;
+  aiActive = true;
   setAIStatus('listening', '🎤 Say "' + name + '"');
+
+  // Longer timeout: Whisper needs record + silence detect + API call
+  const timeout = useWhisper() ? 20000 : 10000;
   let repeatTimeout = setTimeout(() => {
-    answered = true;
-    speak(getRepeatFail(name), () => goNext());
-  }, 6000);
+    if (window._repeatMode) {
+      window._repeatMode = false;
+      answered = true;
+      speak(getRepeatFail(name), () => goNext());
+    }
+  }, timeout);
 
   window._repeatMode = true;
   window._repeatName = name;
   window._repeatTimeout = repeatTimeout;
+
+  // Wait for TTS echo to fully die down, then start fresh listening
+  // Stop any existing recording first
+  pauseListening();
+  const startDelay = useWhisper() ? 1200 : 600;
+  setTimeout(() => {
+    if (!window._repeatMode) return; // cancelled
+    listenRetries = 0;
+    startListeningSession();
+  }, startDelay);
 }
 
 function processAnswerWrapper(transcripts) {
@@ -1737,9 +1774,13 @@ function processAnswerWrapper(transcripts) {
     window._repeatMode = false;
     answered = true;
     clearTimeout(window._repeatTimeout);
-    const heardText = transcripts[0].toLowerCase();
+    // Strip fillers — kid might say "umm is China"
+    const fillers = ['um','uh','umm','ummm','hmm','hm','oh','ah','is','it','the','a','an','like','so','and','but','okay','well','err','erm','let','me','think','see'];
+    const heardText = transcripts[0].toLowerCase().replace(/[^a-z\s]/g, '').trim();
+    const cleanedWords = heardText.split(/\s+/).filter(w => !fillers.includes(w) && w.length >= 2);
+    const cleaned = cleanedWords.join(' ') || heardText;
     const target = window._repeatName.toLowerCase();
-    if (heardText.includes(target) || target.includes(heardText) || similarity(heardText, target) > 0.4 || similarity(phonetic(heardText), phonetic(target)) > 0.5) {
+    if (cleaned.includes(target) || target.includes(cleaned) || similarity(cleaned, target) > 0.4 || similarity(phonetic(cleaned), phonetic(target)) > 0.5) {
       setAIStatus('correct', '🌟 ' + window._repeatName);
       speak(getRepeatSuccess(window._repeatName), () => goNext());
     } else {
@@ -1837,14 +1878,14 @@ function parentOverride() {
 }
 
 function aiListen() {
-  if (answered) return;
+  if (answered && !window._repeatMode) return;
   clearTimeout(silenceTimer);
   // Tap-to-talk: stop AI if speaking, force start mic
   if (isSpeaking) { stopSpeaking(); isSpeaking = false; }
   listenRetries = 0;
   restartListening();
-  resumeThinking();
-  setAIStatus('listening', '🎤 Listening...');
+  if (!window._repeatMode) resumeThinking();
+  setAIStatus('listening', window._repeatMode ? '🎤 Say "' + (window._repeatName || '') + '"' : '🎤 Listening...');
 }
 
 function aiSkip() {
