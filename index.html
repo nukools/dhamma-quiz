@@ -1471,6 +1471,64 @@ function countCountriesInText(text) {
   return matched;
 }
 
+// === SMART AI RESPONSES (GPT) ===
+async function askGPTJudge(heardText, flag, attemptNum, maxHints) {
+  const key = getWhisperKey();
+  if (!key) return null;
+
+  const flagNames = FLAGS.map(f => f.name).join(', ');
+  const hintLevel = attemptNum <= maxHints ? attemptNum : 'reveal';
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + key
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 200,
+        temperature: 0.8,
+        messages: [{
+          role: 'system',
+          content: `You are a fun, encouraging AI quiz host for a 4-year-old Thai boy named Dhamma in a flag guessing game. You speak English in short, simple sentences.
+
+CURRENT FLAG: ${flag.name} (looks like: ${flag.look})
+ALL COUNTRIES IN QUIZ: ${flagNames}
+
+The child has a Thai accent. Speech recognition may mishear words (e.g., "tie land"=Thailand, "chai na"=China, "ya pan"=Japan).
+
+RULES:
+1. First, decide: is the child ACTUALLY trying to say "${flag.name}"? Consider accent and speech recognition errors. If yes, set correct=true.
+2. If wrong, figure out what country they likely meant based on what was heard.
+3. Give a response that is natural, fun, and references what you heard them say.
+4. Hint level ${hintLevel}: ${attemptNum === 1 ? 'gentle hint about flag colors/design' : attemptNum === 2 ? 'stronger hint with continent/region' : attemptNum === 3 ? 'very strong hint, almost give away' : 'reveal the answer kindly'}
+5. Keep response under 2 sentences. Be warm and encouraging.
+6. NEVER say the correct answer in hints (unless revealing).
+
+Respond ONLY in this JSON format:
+{"correct":true/false,"guess":"what country they likely said","response":"your natural response to Dhamma"}`
+        }, {
+          role: 'user',
+          content: `Speech recognition heard: "${heardText}"`
+        }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return null;
+  } catch (e) {
+    console.warn('GPT API error:', e);
+    return null;
+  }
+}
+
 function processAnswer(transcripts) {
   if (answered) return;
   const f = FLAGS[flagIdx];
@@ -1530,17 +1588,56 @@ function processAnswer(transcripts) {
     return;
   }
 
-  // Normal wrong answer
+  // Normal wrong answer — use GPT for smart response
   attempts++;
   lastWrong = heardText;
 
-  if (attempts <= MAX_HINTS) {
-    const reaction = getWrongReaction(heardText, f);
-    const hint = getHintMessage(f, attempts);
-    setAIStatus('wrong', '💡 Hint ' + attempts + '/3 — "' + heardText + '"');
-    speak(reaction + " " + hint);
+  if (useWhisper()) {
+    // GPT mode — smart, natural response
+    setAIStatus('speaking', '🤔 Hmm...');
+    askGPTJudge(heardText, f, attempts, MAX_HINTS).then(result => {
+      if (answered) return;
+
+      if (result && result.correct) {
+        // GPT says the child was actually RIGHT — matching missed it
+        hideHeard();
+        answered = true;
+        stopThinking();
+        correctCount++;
+        if (attempts <= 1) { firstTryCorrect++; streak++; } else { streak = 0; }
+        attempts--; // undo the wrong attempt count
+        updateTimerDisplay();
+        revealAnswer(f.name);
+        fireConfetti();
+        setAIStatus('correct', '✅ ' + f.name + ' (Smart AI)');
+        speak(result.response || ("Yes, that's " + f.name + "! Great job Dhamma!"), () => goNext());
+      } else if (attempts <= MAX_HINTS) {
+        // Wrong — GPT gives natural hint
+        const guessedName = result?.guess || heardText;
+        setAIStatus('wrong', '💡 Hint ' + attempts + '/3 — "' + guessedName + '"');
+        speak(result?.response || (getWrongReaction(heardText, f) + " " + getHintMessage(f, attempts)));
+      } else {
+        doReveal(f);
+      }
+    }).catch(() => {
+      // GPT failed — fallback to template
+      if (attempts <= MAX_HINTS) {
+        setAIStatus('wrong', '💡 Hint ' + attempts + '/3 — "' + heardText + '"');
+        speak(getWrongReaction(heardText, f) + " " + getHintMessage(f, attempts));
+      } else {
+        doReveal(f);
+      }
+    });
   } else {
-    doReveal(f);
+    // No API key — template mode
+    if (attempts <= MAX_HINTS) {
+      const reaction = getWrongReaction(heardText, f);
+      const hint = getHintMessage(f, attempts);
+      setAIStatus('wrong', '💡 Hint ' + attempts + '/3 — "' + heardText + '"');
+      speak(reaction + " " + hint);
+    } else {
+      doReveal(f);
+    }
   }
 }
 
