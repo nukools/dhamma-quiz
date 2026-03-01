@@ -1583,7 +1583,10 @@ Whisper transcribes Dhamma's speech. Common patterns:
 - "ko ree a" = Korea
 - Filler words before answers: "umm... is... China!" → the answer is China
 - Random sounds/repeated syllables: "ha ha ha", "kala kala", "la la la" = the child is just making sounds, NOT trying to say a country name
-- CRITICAL: "kala" is NOT Qatar. "la la" is NOT Laos. Random babbling is NOT a country guess. When in doubt, it's unclear.
+- Repeated non-country words: "hello hello hello", "wow wow wow", "yes yes yes", "no no no" = the child is playing/babbling, NOT answering
+- ANY text where the same word(s) repeat 3+ times is BABBLING, not a country guess → action: "unclear"
+- CRITICAL: "kala" is NOT Qatar. "la la" is NOT Laos. "hello" is NOT a country. Random babbling is NOT a country guess.
+- RULE: If the text does NOT contain anything that phonetically resembles a country name from the quiz list, ALWAYS respond with action: "unclear". Do NOT treat it as a wrong answer. Do NOT give hints for gibberish. Just warmly ask Dhamma to try again.
 
 ENGLISH TEACHING VOCABULARY TOOLKIT (use naturally, not all at once):
 - Colors: red, blue, white, yellow, green, orange, black
@@ -1592,6 +1595,11 @@ ENGLISH TEACHING VOCABULARY TOOLKIT (use naturally, not all at once):
 - Position: top, bottom, middle, left, right
 - Geography: country, island, mountain, river, ocean, continent
 - Culture: food, people, language, capital city, animal
+
+DECISION PRIORITY (follow this order STRICTLY):
+1. Does the speech contain a recognizable country name (even with Thai accent)? → "correct" or "wrong"
+2. Does the speech contain ONLY repeated words, greetings, sounds, or non-country words? → ALWAYS "unclear"
+3. When in doubt between "wrong" and "unclear" → choose "unclear" (it's better to ask again than to waste a hint)
 
 RESPONSE FORMAT:
 You MUST respond ONLY with this JSON (nothing else):
@@ -1664,7 +1672,10 @@ function processAnswer(transcripts) {
       if (answered) return;
       if (!result) { aiFallback(transcripts, f); return; }
 
-      const action = result.action || (result.correct === true ? 'correct' : result.correct === false ? (result.guess === 'unclear' || result.guess === 'none' ? 'unclear' : 'wrong') : 'wrong');
+      const rawAction = result.action || (result.correct === true ? 'correct' : result.correct === false ? 'wrong' : 'wrong');
+      const guess = (result.guess || '').toLowerCase();
+      // If GPT says "wrong" but guess is unclear/none/empty, treat as unclear
+      const action = (rawAction === 'wrong' && (!guess || guess === 'unclear' || guess === 'none' || guess === 'unknown' || guess === 'gibberish')) ? 'unclear' : rawAction;
 
       if (action === 'correct' || result.correct === true) {
         hideHeard();
