@@ -1421,8 +1421,8 @@ function onSilence() {
 
   if (nudgeCount <= 2 && useWhisper()) {
     if (nudgeCount === 2 && attempts < MAX_HINTS) attempts++;
-    askAITeacher('nudge', { attempt: attempts }).then(response => {
-      const msg = response || "Hey Dhamma, this flag is " + f.look + ". Give it a try!";
+    askAI(`Dhamma has been quiet for a while. This is nudge #${nudgeCount}. Gently encourage him to try answering. Give a small hint about the flag.`).then(result => {
+      const msg = result?.response || "Hey Dhamma, this flag is " + f.look + ". Give it a try!";
       addToHistory('teacher', msg);
       speak(msg);
     }).catch(() => {
@@ -1453,8 +1453,8 @@ function doReveal(f) {
   setAIStatus('wrong', '📖 ' + f.name);
 
   if (useWhisper()) {
-    askAITeacher('reveal', {}).then(response => {
-      const msg = response || getRevealMessage(f);
+    askAI(`Dhamma couldn't guess this flag after all hints. Time to reveal the answer kindly. Tell him it's ${flag.name}, teach a fun fact, and ask him to say the name for pronunciation practice.`).then(result => {
+      const msg = result?.response || getRevealMessage(f);
       addToHistory('teacher', msg);
       speak(msg, () => listenForRepeat(f.name));
     }).catch(() => {
@@ -1479,8 +1479,8 @@ function aiStartRound() {
 
   if (useWhisper()) {
     setAIStatus('speaking', '🧠 Getting ready...');
-    askAITeacher('question', {}).then(response => {
-      const msg = response || getQuestion();
+    askAI(`Ask Dhamma about this new flag! Make it fun and varied. Don't just say "What country is this?" — be creative and enthusiastic. 1-2 sentences. DO NOT mention the country name.`).then(result => {
+      const msg = result?.response || getQuestion();
       addToHistory('teacher', msg);
       speak(msg);
     }).catch(() => {
@@ -1510,157 +1510,135 @@ function countCountriesInText(text) {
   return matched;
 }
 
-// === AI TEACHER ENGINE (GPT-4o-mini) ===
-// Conversation history for context
+// === AI TEACHER ENGINE — GPT IS THE BRAIN ===
 let conversationHistory = [];
-const MAX_HISTORY = 10; // keep last 10 exchanges
+const MAX_HISTORY = 20;
 
-function addToHistory(role, content) {
-  conversationHistory.push({ flag: FLAGS[flagIdx]?.name, role, content });
+function addToHistory(role, content, meta) {
+  conversationHistory.push({ role, content, flag: FLAGS[flagIdx]?.name, ...meta });
   if (conversationHistory.length > MAX_HISTORY * 2) {
     conversationHistory = conversationHistory.slice(-MAX_HISTORY * 2);
   }
 }
 
-function getHistorySummary() {
-  if (conversationHistory.length === 0) return 'This is the start of the quiz.';
-  return conversationHistory.slice(-6).map(h =>
-    (h.role === 'child' ? 'Dhamma said: ' : 'Teacher said: ') + '"' + h.content + '"' + (h.flag ? ' [flag: ' + h.flag + ']' : '')
-  ).join('\n');
+function buildHistory() {
+  if (conversationHistory.length === 0) return '';
+  return '\n\nCONVERSATION SO FAR:\n' + conversationHistory.slice(-12).map(h => {
+    if (h.role === 'dhamma') return `🧒 Dhamma: "${h.content}"` + (h.flag ? ` [looking at ${h.flag} flag]` : '');
+    if (h.role === 'teacher') return `👩‍🏫 You: "${h.content}"`;
+    if (h.role === 'system') return `📋 ${h.content}`;
+    return '';
+  }).join('\n');
 }
 
-const AI_TEACHER_SYSTEM = `You are a warm, enthusiastic AI English teacher named "Flag Teacher" for Dhamma, a brilliant 4-year-old Thai boy. You're hosting a fun flag quiz game that also teaches English naturally.
+function getAISystemPrompt() {
+  const flag = FLAGS[flagIdx];
+  const flagNames = FLAGS.map(f => f.name).join(', ');
+  const progress = `Flag ${flagIdx + 1} of ${FLAGS.length}`;
+  const stats = `${correctCount} correct so far, ${firstTryCorrect} on first try, current streak: ${streak}`;
 
-YOUR PERSONALITY:
-- Warm, encouraging, genuinely amazed by Dhamma's knowledge
-- Like a fun aunt/uncle who makes learning exciting
-- You celebrate wins enthusiastically but naturally (not robotic)
-- You're patient with mistakes and turn them into learning moments
-- You sprinkle in simple English vocabulary and phrases naturally
+  return `You are an incredibly warm, fun, and intelligent AI English teacher having a real conversation with Dhamma (ธรรมะ), a brilliant 4-year-old Thai boy. You're playing a flag quiz game together, but more importantly, you're teaching him English through natural conversation.
 
-YOUR ENGLISH TEACHING APPROACH:
-- After correct answers: teach ONE fun fact in simple English + introduce a new word
-  Example: "Yes! Japan! Japan is an island country. 'Island' means land with water all around it. Can you say 'island'?"
-- After wrong answers: your hint naturally includes English vocabulary
-  Example: "Hmm, look at this flag. It has a big red circle. 'Circle' means round shape, like the sun!"
-- Keep sentences SHORT (a 4-year-old attention span). Max 2-3 sentences.
-- Use repetition naturally: "Japan! That's right, Japan! Japan has a beautiful flag!"
-- Introduce concepts: colors, shapes, directions (up/down), sizes (big/small), simple geography
+WHO IS DHAMMA:
+- 4 years old, Thai, speaks Thai natively, learning English
+- Amazingly smart — he can already recognize 50+ country flags!
+- Has a Thai accent when speaking English (r→l, v→w, th→t, dropped final consonants)
+- Sometimes says "umm", "hmm", makes sounds before answering — this is NORMAL for a 4-year-old thinking
+- Sometimes gets excited and says multiple countries or makes silly sounds — be patient and playful about it
+- His speech goes through Whisper AI, which sometimes mishears Thai-accented English
 
-SPEECH PATTERNS:
-- Use Dhamma's name often (kids love hearing their name)
-- Express genuine excitement: "Oh wow!", "No way!", "Amazing!"
-- Be conversational, not scripted
-- Never sound like a template or bot
-- Vary your responses — never repeat the same phrase twice in a row
+YOUR ROLE — BE A REAL TEACHER, NOT A BOT:
+- Talk to Dhamma like a loving, fun teacher who genuinely cares
+- Every interaction is a chance to teach English naturally — not forced, not scripted
+- Celebrate correct answers with a fun fact + ONE new English word
+  "Yes! China! China has the most people in the world. 'People' means many persons, like your family and friends! Can you say 'people'?"
+- When he's wrong, turn it into a learning moment about the flag
+  "Hmm, I heard Japan! But look at this flag, Dhamma — it has FIVE yellow stars. 'Stars' are the twinkly things in the sky at night! This flag is from a very big country..."
+- When he makes random sounds or you can't understand, be natural about it
+  "Haha, I didn't quite catch that! Let's look at this flag together — see the pretty colors?"
+- When he's quiet, encourage gently like a real teacher would
+
+CURRENT GAME STATE:
+- ${progress}
+- ${stats}
+- Current flag: ${flag.name}
+- Flag appearance: ${flag.look}
+- Continent: ${flag.continent}
+- Fun fact: ${flag.hint}
+- Attempt on this flag: ${attempts} of ${MAX_HINTS}
+- ${streak >= 3 ? '🔥 Dhamma is on a ' + streak + '-flag STREAK!' : ''}
+- ${flagIdx === 0 ? '🎬 This is the FIRST flag — introduce the game!' : ''}
+- ${flagIdx === FLAGS.length - 1 ? '🏁 This is the LAST flag!' : ''}
+
+ALL 50 FLAGS IN THIS QUIZ: ${flagNames}
+
+SPEECH-TO-TEXT UNDERSTANDING:
+Whisper transcribes Dhamma's speech. Common patterns:
+- "chai na" or "jai na" = China
+- "jah pan" or "ya pan" = Japan  
+- "tie land" or "tai len" = Thailand
+- "boo tan" = Bhutan
+- "singabo" or "singa po" = Singapore
+- "in dia" = India
+- "ko ree a" = Korea
+- Filler words before answers: "umm... is... China!" → the answer is China
+- Random sounds/repeated syllables: "ha ha ha", "kala kala", "la la la" = the child is just making sounds, NOT trying to say a country name
+- CRITICAL: "kala" is NOT Qatar. "la la" is NOT Laos. Random babbling is NOT a country guess. When in doubt, it's unclear.
+
+ENGLISH TEACHING VOCABULARY TOOLKIT (use naturally, not all at once):
+- Colors: red, blue, white, yellow, green, orange, black
+- Shapes: star, circle, cross, stripe, triangle, crescent (moon shape)
+- Size: big, small, tiny, huge
+- Position: top, bottom, middle, left, right
+- Geography: country, island, mountain, river, ocean, continent
+- Culture: food, people, language, capital city, animal
+
+RESPONSE FORMAT:
+You MUST respond ONLY with this JSON (nothing else):
+{
+  "action": "correct" | "wrong" | "unclear" | "reveal" | "ask" | "nudge" | "celebrate" | "repeat_ok" | "repeat_fail" | "end",
+  "guess": "what country you think Dhamma said, or 'none' if unclear/gibberish",
+  "response": "your natural response to speak aloud (1-3 SHORT sentences, will be read by TTS)",
+  "teach_word": "optional: the English word you're teaching this turn"
+}
 
 CRITICAL RULES:
-- Speak in simple English (appropriate for a 4-year-old learning English)
-- Keep responses to 1-3 SHORT sentences (will be spoken by TTS)
-- NEVER use Thai language
-- If teaching a new word, also say it in a simple way the child can understand
-- Always end with something that encourages the child to speak (a question, "say it with me", etc.)`;
+- NEVER use Thai. English only (simple enough for a 4-year-old).
+- Keep responses to 1-3 SHORT sentences. TTS will speak them aloud.
+- ${attempts < MAX_HINTS ? 'Do NOT reveal the answer "' + flag.name + '" yet! Give hints instead.' : 'You may reveal the answer now if needed.'}
+- Be genuinely warm and natural. If someone watched this interaction, they should think "wow, that AI teacher is amazing."
+- VARY your responses. Never use the same phrase twice in a conversation.
+- Always end with something that invites Dhamma to speak or try again.`;
+}
 
-async function askAITeacher(scenario, context) {
+async function askAI(userMessage) {
   const key = getWhisperKey();
   if (!key) return null;
 
-  const flag = FLAGS[flagIdx];
-  const flagNames = FLAGS.map(f => f.name).join(', ');
-  const progress = (flagIdx + 1) + '/' + FLAGS.length;
-  const scoreInfo = 'Score: ' + correctCount + ' correct, ' + firstTryCorrect + ' first-try, streak: ' + streak;
-
-  const scenarioPrompts = {
-    'question': `SCENARIO: Ask Dhamma about a new flag.
-Flag #${flagIdx + 1} of ${FLAGS.length}. ${scoreInfo}.
-${streak >= 3 ? 'Dhamma is on a ' + streak + '-flag streak!' : ''}
-${flagIdx === 0 ? 'This is the FIRST flag of the quiz — introduce the game excitedly!' : ''}
-${flagIdx === FLAGS.length - 1 ? 'This is the LAST flag!' : ''}
-Ask an enthusiastic, varied question. Never just say "What country is this?" — make it fun and different each time.
-Keep it SHORT — 1-2 sentences max.
-DO NOT mention the country name.`,
-
-    'judge': `SCENARIO: Dhamma answered a flag question.
-CURRENT FLAG: ${flag.name} (looks like: ${flag.look}, continent: ${flag.continent}, fun fact: ${flag.hint})
-WHISPER HEARD: "${context.heard}"
-ATTEMPT: ${context.attempt} of ${MAX_HINTS}
-${scoreInfo}
-
-STEP 1 — IS IT GIBBERISH?
-If "${context.heard}" contains repeated nonsense syllables, random sounds, or doesn't resemble ANY country name → respond with: {"correct": false, "guess": "unclear", "response": "...ask to try again with a hint about the flag..."}
-"kala kala" is NOT Qatar. "la la la" is NOT Laos. Random sounds are just unclear.
-
-STEP 2 — IS IT CORRECT?
-Does "${context.heard}" sound like "${flag.name}"? Consider Thai accent: r→l, v→w, th→t, dropped finals.
-"chai na"=China, "jah pan"=Japan, "tie land"=Thailand, "po len"=Poland, "singabo"=Singapore, "boo tan"=Bhutan
-The child might have filler words: "um is China" → the answer is China.
-If correct → {"correct": true, "guess": "${flag.name}", "response": "...celebrate + teach one English word/fact..."}
-
-STEP 3 — WRONG BUT REAL COUNTRY?
-If it sounds like a different country → acknowledge what you heard, give a hint.
-Hint level ${context.attempt}: ${context.attempt === 1 ? 'Gentle — mention flag colors/design, continent, first letter' : context.attempt === 2 ? 'Stronger — fun fact, almost reveal' : 'Very strong — sound out the name, almost give it away'}
-{"correct": false, "guess": "[country they said]", "response": "...natural hint + teach English vocabulary about the flag..."}
-
-IMPORTANT: ${context.attempt <= MAX_HINTS ? 'Do NOT say "' + flag.name + '" in your response!' : 'You may reveal the answer now.'}
-Respond ONLY with JSON: {"correct": true/false, "guess": "country_name or unclear", "response": "your response"}`,
-
-    'reveal': `SCENARIO: Dhamma couldn't guess the flag after all hints. Time to reveal kindly.
-FLAG: ${flag.name} (looks like: ${flag.look}, fun fact: ${flag.hint})
-Reveal the answer warmly. Teach something about this country in simple English. Ask Dhamma to say the country name to practice pronunciation.
-Keep it to 2-3 sentences. Be encouraging — "Now you know!"
-MUST include: the country name, one fun fact, and ask Dhamma to repeat the name.`,
-
-    'repeat_success': `SCENARIO: Dhamma successfully repeated the country name "${context.name}" after being asked.
-Praise the pronunciation! Teach one more tiny English fact or word about ${context.name}. Keep it to 1-2 sentences. Be excited!`,
-
-    'repeat_fail': `SCENARIO: Dhamma tried to repeat "${context.name}" but it wasn't clear, or time ran out.
-Say the name clearly, encourage Dhamma, and move on positively. 1-2 sentences. Don't make the child feel bad.`,
-
-    'end': `SCENARIO: The quiz is finished!
-RESULTS: ${correctCount} correct out of ${FLAGS.length}, ${firstTryCorrect} on first try.
-${Math.round(firstTryCorrect / FLAGS.length * 100)}% first-try accuracy.
-Give a HUGE celebration! Praise Dhamma's English learning. Mention how many flags he learned. Make it feel like a graduation moment. 2-3 sentences.`,
-
-    'shotgun': `SCENARIO: Dhamma said too many country names at once (${context.count} countries).
-Gently ask to slow down and say just one country. Keep it fun and encouraging. 1-2 sentences.`,
-
-    'nudge': `SCENARIO: Dhamma has been quiet for a while on this flag.
-FLAG: ${flag.name} (looks like: ${flag.look})
-ATTEMPT: ${context.attempt}
-Gently encourage Dhamma to try. Give a small hint. 1-2 sentences.`
-  };
-
-  const userMessage = scenarioPrompts[scenario] || scenario;
-
   try {
-    const messages = [
-      { role: 'system', content: AI_TEACHER_SYSTEM },
-      { role: 'user', content: 'CONVERSATION HISTORY:\n' + getHistorySummary() + '\n\n' + userMessage }
-    ];
-
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        max_tokens: 250,
-        temperature: 0.8,
-        messages
+        max_tokens: 300,
+        temperature: 0.85,
+        messages: [
+          { role: 'system', content: getAISystemPrompt() },
+          { role: 'user', content: userMessage + buildHistory() }
+        ]
       })
     });
 
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content || '';
-
-    // For judge scenario, parse JSON
-    if (scenario === 'judge') {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) return JSON.parse(jsonMatch[0]);
-      return null;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return parsed;
     }
-
-    // For other scenarios, return the text directly
-    return text.replace(/^["']|["']$/g, '').trim();
+    // If no JSON, treat as plain text response
+    return { action: 'speak', response: text.replace(/^["']|["']$/g, '').trim() };
   } catch (e) {
     console.warn('AI Teacher error:', e);
     return null;
@@ -1674,92 +1652,21 @@ function processAnswer(transcripts) {
 
   const heardText = transcripts[0];
   showHeard(heardText, false);
-  addToHistory('child', heardText);
+  addToHistory('dhamma', heardText);
 
-  // Check for shotgun guessing first (local check)
-  const countriesMentioned = countCountriesInText(heardText);
-  if (countriesMentioned.length >= 3) {
-    setAIStatus('wrong', '🎯 Too many guesses!');
-    if (useWhisper()) {
-      askAITeacher('shotgun', { count: countriesMentioned.length }).then(response => {
-        const msg = response || "Whoa Dhamma, slow down! Say just one country!";
-        addToHistory('teacher', msg);
-        speak(msg);
-      });
-    } else {
-      speak("Whoa Dhamma, say just one country at a time!");
-    }
-    return;
-  }
-
-  // === LOCAL GIBBERISH DETECTOR (GPT can't reliably detect this) ===
-  function isGibberish(text) {
-    const clean = text.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-    if (clean.length < 2) return true;
-
-    // Strip filler words (kid says "umm is china")
-    const fillers = ['um','uh','umm','ummm','hmm','hm','oh','ah','is','it','the','a','an',
-      'like','so','and','but','okay','well','err','erm','let','me','think','see','this',
-      'that','what','no','yes','yeah'];
-    const words = clean.split(/\s+/).filter(w => !fillers.includes(w) && w.length >= 2);
-
-    // Nothing left after removing fillers → gibberish
-    if (words.length === 0) return true;
-
-    // Repeated syllables: "gala gala gala", "la la la"
-    const unique = [...new Set(words)];
-    if (words.length >= 3 && unique.length === 1) return true;
-    if (words.length >= 4 && unique.length <= 2) return true;
-
-    // Check if ANY remaining word sounds like a country
-    let bestScore = 0;
-    const combined = words.join(' ');
-    for (const flag of FLAGS) {
-      for (const alias of flag.aliases) {
-        const s = Math.max(similarity(combined, alias), similarity(phonetic(combined), phonetic(alias)));
-        if (s > bestScore) bestScore = s;
-        for (const w of words) {
-          const ws = Math.max(similarity(w, alias), similarity(phonetic(w), phonetic(alias)));
-          if (ws > bestScore) bestScore = ws;
-        }
-        for (let i = 0; i < words.length - 1; i++) {
-          const pair = words[i] + ' ' + words[i+1];
-          const ps = Math.max(similarity(pair, alias), similarity(phonetic(pair), phonetic(alias)));
-          if (ps > bestScore) bestScore = ps;
-        }
-      }
-    }
-    return bestScore < 0.35;
-  }
-
-  if (isGibberish(heardText)) {
-    // Don't count as attempt, don't call GPT
-    setAIStatus('listening', '🎤 Try again!');
-    if (useWhisper()) {
-      askAITeacher('nudge', { attempt: attempts }).then(response => {
-        const msg = response || "I didn't quite hear that, Dhamma! Look at this flag and try again!";
-        addToHistory('teacher', msg);
-        speak(msg);
-      }).catch(() => {
-        speak("I didn't catch that, Dhamma! Look at the flag and try again! It's " + f.look + "!");
-      });
-    } else {
-      speak("I didn't catch that! Try again! This flag is " + f.look + "!");
-    }
-    return;
-  }
-
-  // === AI MODE: GPT is the brain ===
+  // === AI MODE: Everything goes to AI ===
   if (useWhisper()) {
     attempts++;
     lastWrong = heardText;
     setAIStatus('speaking', '🧠 Thinking...');
 
-    askAITeacher('judge', { heard: heardText, attempt: attempts }).then(result => {
+    askAI(`Dhamma just said: "${heardText}"\nThis is attempt ${attempts} of ${MAX_HINTS} on the ${f.name} flag.\nWhat did Dhamma mean? Is it correct, wrong, or unclear? Respond naturally as his teacher.`).then(result => {
       if (answered) return;
+      if (!result) { aiFallback(transcripts, f); return; }
 
-      if (result && result.correct) {
-        // CORRECT — AI confirmed!
+      const action = result.action || (result.correct === true ? 'correct' : result.correct === false ? (result.guess === 'unclear' || result.guess === 'none' ? 'unclear' : 'wrong') : 'wrong');
+
+      if (action === 'correct' || result.correct === true) {
         hideHeard();
         answered = true;
         stopThinking();
@@ -1770,48 +1677,25 @@ function processAnswer(transcripts) {
         revealAnswer(f.name);
         fireConfetti();
         setAIStatus('correct', '✅ ' + f.name + (streak >= 3 ? ' 🔥' + streak : ''));
-        const msg = result.response || ("Yes! " + f.name + "! Great job Dhamma!");
-        addToHistory('teacher', msg);
-        speak(msg, () => goNext());
+        addToHistory('teacher', result.response);
+        speak(result.response, () => goNext());
 
-      } else if (result && result.guess === 'unclear') {
-        // UNCLEAR — don't count attempt
-        attempts--;
+      } else if (action === 'unclear') {
+        attempts--; // don't count unclear speech
         setAIStatus('listening', '🎤 Try again!');
-        const msg = result.response || "I didn't catch that, Dhamma! Say it again slowly!";
-        addToHistory('teacher', msg);
-        speak(msg);
+        addToHistory('teacher', result.response);
+        speak(result.response);
 
       } else if (attempts <= MAX_HINTS) {
-        // WRONG — AI gives contextual hint + English teaching
         showHeard(heardText, true);
-        const guessedName = result?.guess || heardText;
-        setAIStatus('wrong', '💡 Hint ' + attempts + '/' + MAX_HINTS + ' — "' + guessedName + '"');
-        const msg = result?.response || (getWrongReaction(heardText, f) + " " + getHintMessage(f, attempts));
-        addToHistory('teacher', msg);
-        speak(msg);
+        setAIStatus('wrong', '💡 Hint ' + attempts + '/' + MAX_HINTS + (result.guess && result.guess !== 'none' ? ' — "' + result.guess + '"' : ''));
+        addToHistory('teacher', result.response);
+        speak(result.response);
 
       } else {
         doReveal(f);
       }
-    }).catch(() => {
-      // AI failed — template fallback
-      const isCorrect = checkAnswer(transcripts, f);
-      if (isCorrect) {
-        hideHeard(); answered = true; stopThinking(); correctCount++;
-        if (attempts <= 1) { firstTryCorrect++; streak++; } else { streak = 0; }
-        attempts--;
-        updateTimerDisplay(); revealAnswer(f.name); fireConfetti();
-        setAIStatus('correct', '✅ ' + f.name);
-        speak(getCorrectResponse(f), () => goNext());
-      } else if (attempts <= MAX_HINTS) {
-        showHeard(heardText, true);
-        setAIStatus('wrong', '💡 Hint ' + attempts + '/' + MAX_HINTS);
-        speak(getWrongReaction(heardText, f) + " " + getHintMessage(f, attempts));
-      } else {
-        doReveal(f);
-      }
-    });
+    }).catch(() => aiFallback(transcripts, f));
     return;
   }
 
@@ -1830,10 +1714,26 @@ function processAnswer(transcripts) {
   if (attempts <= MAX_HINTS) {
     setAIStatus('wrong', '💡 Hint ' + attempts + '/' + MAX_HINTS);
     speak(getWrongReaction(heardText, f) + " " + getHintMessage(f, attempts));
-  } else {
-    doReveal(f);
-  }
+  } else { doReveal(f); }
 }
+
+// Template fallback when AI is unavailable
+function aiFallback(transcripts, f) {
+  const isCorrect = checkAnswer(transcripts, f);
+  if (isCorrect) {
+    hideHeard(); answered = true; stopThinking(); correctCount++;
+    if (attempts <= 1) { firstTryCorrect++; streak++; } else { streak = 0; }
+    attempts--;
+    updateTimerDisplay(); revealAnswer(f.name); fireConfetti();
+    setAIStatus('correct', '✅ ' + f.name);
+    speak(getCorrectResponse(f), () => goNext());
+  } else if (attempts <= MAX_HINTS) {
+    showHeard(transcripts[0], true);
+    setAIStatus('wrong', '💡 Hint ' + attempts + '/' + MAX_HINTS);
+    speak(getWrongReaction(transcripts[0], f) + " " + getHintMessage(f, attempts));
+  } else { doReveal(f); }
+}
+
 
 function listenForRepeat(name) {
   answered = false;
@@ -1847,8 +1747,8 @@ function listenForRepeat(name) {
       window._repeatMode = false;
       answered = true;
       if (useWhisper()) {
-        askAITeacher('repeat_fail', { name }).then(response => {
-          const msg = response || getRepeatFail(name);
+        askAI(`Dhamma tried to repeat "${name}" but time ran out or it wasn't clear. Say the name clearly, encourage him, and let's move on. 1-2 sentences.`).then(result => {
+          const msg = result?.response || getRepeatFail(name);
           addToHistory('teacher', msg);
           speak(msg, () => goNext());
         }).catch(() => {
@@ -1893,10 +1793,12 @@ function processAnswerWrapper(transcripts) {
     const success = cleaned.includes(target) || target.includes(cleaned) || similarity(cleaned, target) > 0.4 || similarity(phonetic(cleaned), phonetic(target)) > 0.5;
 
     if (useWhisper()) {
-      const scenario = success ? 'repeat_success' : 'repeat_fail';
       setAIStatus(success ? 'correct' : 'speaking', success ? '🌟 ' + repeatName : '🗣️ ' + repeatName);
-      askAITeacher(scenario, { name: repeatName }).then(response => {
-        const msg = response || (success ? getRepeatSuccess(repeatName) : getRepeatFail(repeatName));
+      const prompt = success
+        ? `Dhamma successfully said "${repeatName}"! Praise his pronunciation and teach one more tiny fact about ${repeatName}. 1-2 sentences.`
+        : `Dhamma tried to repeat "${repeatName}" but it wasn't clear. Say the name, encourage him, move on positively. 1-2 sentences.`;
+      askAI(prompt).then(result => {
+        const msg = result?.response || (success ? getRepeatSuccess(repeatName) : getRepeatFail(repeatName));
         addToHistory('teacher', msg);
         speak(msg, () => goNext());
       }).catch(() => {
@@ -1963,8 +1865,8 @@ function endShow() {
   document.getElementById('stat-correct').textContent = correctText;
 
   if (useWhisper()) {
-    askAITeacher('end', {}).then(response => {
-      const msg = response || getEndMessage();
+    askAI(`The quiz is finished! Dhamma got ${correctCount} correct out of ${FLAGS.length}, ${firstTryCorrect} on first try (${Math.round(firstTryCorrect / FLAGS.length * 100)}%). Give a HUGE celebration! Praise his English learning and make it feel like a graduation moment. 2-3 sentences.`).then(result => {
+      const msg = result?.response || getEndMessage();
       speak(msg);
     }).catch(() => {
       speak(getEndMessage());
