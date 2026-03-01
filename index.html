@@ -1008,7 +1008,7 @@ async function transcribeWithWhisper(audioBlob) {
   formData.append('language', 'en');
   // Prompt helps Whisper understand context — list country names
   const flagNames = FLAGS.map(f => f.name).join(', ');
-  formData.append('prompt', 'A 4-year-old child is naming countries from flags: ' + flagNames);
+  formData.append('prompt', 'A 4-year-old Thai child is naming countries. Possible words: ' + flagNames + '. The child has a Thai accent and may mispronounce words.');
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
@@ -1507,28 +1507,28 @@ ATTEMPT: ${attemptNum} of ${maxHints}
 
 The child has a Thai accent. Speech-to-text often mishears (e.g., "chai na"=China, "tie land"=Thailand, "ya pan"=Japan, "boo tan"=Bhutan, "singabo"=Singapore).
 
-STEP 1 — JUDGE: Is "${heardText}" the child's attempt to say "${flag.name}"? Consider:
-- Thai accent: r→l, v→w, th→t, final consonants dropped
-- Speech recognition errors: words may be split, merged, or garbled
-- If it sounds close phonetically, set correct=true
-
-STEP 2 — If UNCLEAR (gibberish, repeated syllables, noise like "kala kala", "bah bah", etc.):
+CRITICAL STEP 1 — CHECK FOR GIBBERISH FIRST:
+If the text contains repeated syllables ("kala kala", "la la la", "bah bah"), random sounds, humming, or does NOT resemble ANY country name at all, then:
 - Set correct=false, guess="unclear"
-- Response: kindly ask Dhamma to try again more slowly, maybe with a small hint about the flag
+- Ask Dhamma to try again slowly, give a small hint about the flag
+- Do NOT guess a country from gibberish. "kala kala" is NOT Qatar. "la la" is NOT Laos.
 
-STEP 3 — If WRONG but clearly a different country name:
+STEP 2 — CHECK IF CORRECT:
+Does "${heardText}" sound like the child trying to say "${flag.name}"?
+- Thai accent: r→l, v→w, th→t, final consonants often dropped
+- "chai na" = China ✓, "jah pan" = Japan ✓, "po len" = Poland ✓
+- If it sounds close phonetically, set correct=true and celebrate!
+
+STEP 3 — CLEARLY A DIFFERENT COUNTRY:
+If the text clearly matches a DIFFERENT country name (e.g., heard "Japan" but flag is China):
 - Set correct=false, guess="[country they said]"
-- Reference what they said: "I heard [country], but look at this flag..."
+- Say something like "I heard you say [country]! Good guess, but look at this flag..."
 - ${hintInstruction}
 
-STEP 4 — If CORRECT:
-- Set correct=true
-- Give a fun celebration!
+NEVER say "${flag.name}" in your response unless attempt > ${maxHints} (then reveal it).
 
-NEVER say "${flag.name}" in your response unless revealing (attempt > ${maxHints}).
-
-JSON only, no other text:
-{"correct":true/false,"guess":"country name or unclear","response":"your response to Dhamma"}`
+JSON only:
+{"correct":true/false,"guess":"country or unclear","response":"your 1-2 sentence response"}`
         }, {
           role: 'user',
           content: `Whisper heard: "${heardText}"`
