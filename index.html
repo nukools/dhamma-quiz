@@ -1809,6 +1809,7 @@ function processAnswer(transcripts) {
   if (answered) return;
   const f = FLAGS[flagIdx];
   stopSpeaking();
+  stopThinking(); // Stop timer immediately when Dhamma answers
 
   const heardText = transcripts[0];
   showHeard(heardText, false);
@@ -1849,16 +1850,31 @@ Judge what Dhamma said and respond as his teacher.`).then(result => {
       const rawAction = result.action || (result.correct === true ? 'correct' : result.correct === false ? 'wrong' : 'wrong');
       const guess = (result.guess || '').toLowerCase();
       
-      // Safety net: override to "unclear" if GPT misjudges gibberish
+      // === SAFETY NET: Local answer verification ===
+      // Check if Dhamma's speech actually matches the correct flag
+      const localCorrect = checkAnswer(transcripts, f);
+      
       let action = rawAction;
       let overriddenToUnclear = false;
-      // 1. GPT says wrong but no real country guess
-      if (rawAction === 'wrong' && (!guess || guess === 'unclear' || guess === 'none' || guess === 'unknown' || guess === 'gibberish')) {
+      let overriddenToCorrect = false;
+
+      // SAFETY NET 1: GPT says wrong/unclear but answer IS correct locally → force correct
+      if (localCorrect && action !== 'correct') {
+        console.log('🛡️ Safety net: GPT said "' + action + '" but local match confirms CORRECT! Overriding.');
+        action = 'correct';
+        overriddenToCorrect = true;
+      }
+      
+      // SAFETY NET 2: GPT says correct but local check says no → trust GPT (it may understand accent better)
+      // No override needed here — GPT's accent understanding is broader
+
+      // SAFETY NET 3: GPT says wrong but no real country guess
+      if (action === 'wrong' && (!guess || guess === 'unclear' || guess === 'none' || guess === 'unknown' || guess === 'gibberish')) {
         action = 'unclear';
         overriddenToUnclear = true;
       }
-      // 2. Text was flagged as gibberish AND GPT's guess doesn't match what was actually said
-      if (looksLikeGibberish && rawAction === 'wrong' && guess !== 'none') {
+      // SAFETY NET 4: Text was flagged as gibberish AND GPT's guess doesn't match what was actually said
+      if (looksLikeGibberish && action === 'wrong' && guess !== 'none') {
         const heardLower = heardText.toLowerCase();
         const guessInText = guess.length >= 3 && (heardLower.includes(guess) || similarity(heardLower, guess) > 0.5);
         if (!guessInText) {
@@ -1876,6 +1892,16 @@ Judge what Dhamma said and respond as his teacher.`).then(result => {
       ];
       if (overriddenToUnclear) {
         result.response = unclearFallbacks[Math.floor(Math.random() * unclearFallbacks.length)];
+      }
+      // If we overrode to correct, replace GPT's wrong response with celebration
+      if (overriddenToCorrect) {
+        const correctFallbacks = [
+          `Yes! That's ${f.name}! Amazing, Dhamma! You're so smart!`,
+          `${f.name}! You got it! Great job, Dhamma!`,
+          `That's right, it's ${f.name}! Wow, you knew that one! Well done!`,
+          `${f.name}, yes! Fantastic, Dhamma! You're a flag champion!`,
+        ];
+        result.response = correctFallbacks[Math.floor(Math.random() * correctFallbacks.length)];
       }
 
       if (action === 'correct' || result.correct === true) {
