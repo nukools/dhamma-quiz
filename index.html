@@ -844,6 +844,8 @@ function getWhisperKey() {
 }
 
 function useWhisper() { return !!getWhisperKey(); }
+// AI Teacher works if we have an API key — regardless of transcription method
+function useAI() { return !!getWhisperKey(); }
 
 function saveWhisperKey() {
   const input = document.getElementById('api-key-input');
@@ -1346,9 +1348,14 @@ function startFlags() {
 
   // Show listening mode
   if (useWhisper()) {
-    console.log('🧠 Whisper AI mode active');
+    console.log('🧠 Whisper AI transcription active');
   } else {
     console.log('🎤 Browser Speech Recognition mode');
+  }
+  if (useAI()) {
+    console.log('🤖 AI Teacher (GPT) active');
+  } else {
+    console.log('📝 Template responses (no API key)');
   }
 
   if (mode === 'ai') {
@@ -1419,7 +1426,7 @@ function onSilence() {
   nudgeCount++;
   const f = FLAGS[flagIdx];
 
-  if (useWhisper()) {
+  if (useAI()) {
     if (nudgeCount === 2 && attempts < MAX_HINTS) attempts++;
     if (nudgeCount >= 3) { doReveal(f); return; }
     askAI(`SITUATION: Dhamma has been quiet for a while (silence #${nudgeCount}).
@@ -1456,7 +1463,7 @@ function doReveal(f) {
   revealAnswer(f.name);
   setAIStatus('wrong', '📖 ' + f.name);
 
-  if (useWhisper()) {
+  if (useAI()) {
     askAI(`SITUATION: Time to reveal the answer! Dhamma couldn't guess this flag.
 The answer is: ${f.name}
 Tell him warmly: "It's [country]!" + teach ONE fun fact about ${f.name} in simple English + ask him to say "${f.name}" for pronunciation practice.
@@ -1486,7 +1493,7 @@ function aiStartRound() {
   hideHeard();
 
   const f = FLAGS[flagIdx];
-  if (useWhisper()) {
+  if (useAI()) {
     setAIStatus('speaking', '🧠 Getting ready...');
     askAI(`SITUATION: New flag! Ask Dhamma about flag #${flagIdx + 1} of ${FLAGS.length}.
 ${flagIdx === 0 ? '🎬 FIRST FLAG! Welcome Dhamma to the game. Be super excited! Introduce yourself briefly as his flag teacher.' : ''}
@@ -1808,7 +1815,7 @@ function processAnswer(transcripts) {
   addToHistory('dhamma', heardText);
 
   // === AI MODE: Everything goes to AI ===
-  if (useWhisper()) {
+  if (useAI()) {
     attempts++;
     lastWrong = heardText;
     setAIStatus('speaking', '🧠 Thinking...');
@@ -1954,7 +1961,7 @@ function listenForRepeat(name) {
     if (window._repeatMode) {
       window._repeatMode = false;
       answered = true;
-      if (useWhisper()) {
+      if (useAI()) {
         askAI(`SITUATION: Dhamma was asked to repeat "${name}" but time ran out — he was quiet or didn't try.
 Say "${name}" clearly one more time, encourage him warmly ("That's a tricky word!"), and let's move to the next flag. 1-2 sentences.`).then(result => {
           const msg = result?.response || getRepeatFail(name);
@@ -2001,7 +2008,7 @@ function processAnswerWrapper(transcripts) {
     const target = repeatName.toLowerCase();
     const success = cleaned.includes(target) || target.includes(cleaned) || similarity(cleaned, target) > 0.4 || similarity(phonetic(cleaned), phonetic(target)) > 0.5;
 
-    if (useWhisper()) {
+    if (useAI()) {
       setAIStatus(success ? 'correct' : 'speaking', success ? '🌟 ' + repeatName : '🗣️ ' + repeatName);
       const prompt = success
         ? `SITUATION: Dhamma just repeated "${repeatName}" correctly! 🎉
@@ -2046,7 +2053,7 @@ Say "${repeatName}" clearly, tell him good try, move on happily. 1-2 sentences. 
 
     if (idkCount === 1 && attempts < MAX_HINTS) {
       attempts++;
-      if (useWhisper()) {
+      if (useAI()) {
         setAIStatus('speaking', '🧠 Helping...');
         askAI(`SITUATION: Dhamma said "${transcripts[0]}" — he's asking for help or saying he doesn't know.
 This is his first time asking for help on this flag. Give him a warm, encouraging hint.
@@ -2095,7 +2102,7 @@ function endShow() {
   if (hinted > 0) correctText += ' (' + firstTryCorrect + '⚡+' + hinted + '💡)';
   document.getElementById('stat-correct').textContent = correctText;
 
-  if (useWhisper()) {
+  if (useAI()) {
     const pct = Math.round(firstTryCorrect / FLAGS.length * 100);
     askAI(`SITUATION: THE QUIZ IS FINISHED! 🎉🎊
 RESULTS: ${correctCount} correct out of ${FLAGS.length} flags, ${firstTryCorrect} on first try (${pct}% first-try accuracy).
