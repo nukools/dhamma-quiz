@@ -1748,25 +1748,42 @@ ALWAYS respond with ONLY this JSON:
 
 async function askAI(userMessage) {
   const key = getWhisperKey();
-  if (!key) return null;
+  if (!key) { console.warn('No API key for AI'); return null; }
 
   try {
+    const systemPrompt = getAISystemPrompt();
+    const history = buildHistory();
+    const body = {
+      model: 'gpt-4o-mini',
+      max_tokens: 300,
+      temperature: 0.85,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage + history }
+      ]
+    };
+    
+    console.log('🧠 AI request:', userMessage.substring(0, 80) + '...');
+    console.log('📊 Prompt size:', systemPrompt.length + history.length, 'chars');
+
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 300,
-        temperature: 0.85,
-        messages: [
-          { role: 'system', content: getAISystemPrompt() },
-          { role: 'user', content: userMessage + buildHistory() }
-        ]
-      })
+      body: JSON.stringify(body)
     });
 
     const data = await res.json();
+    
+    // Check for API errors
+    if (data.error) {
+      console.error('🚨 GPT API Error:', data.error.message || data.error);
+      setAIStatus('wrong', '⚠️ AI Error: ' + (data.error.message || 'unknown').substring(0, 50));
+      return null;
+    }
+
     const text = data.choices?.[0]?.message?.content || '';
+    console.log('🧠 AI response:', text.substring(0, 100) + '...');
+    
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -1775,7 +1792,8 @@ async function askAI(userMessage) {
     // If no JSON, treat as plain text response
     return { action: 'speak', response: text.replace(/^["']|["']$/g, '').trim() };
   } catch (e) {
-    console.warn('AI Teacher error:', e);
+    console.error('🚨 AI Teacher error:', e.message || e);
+    setAIStatus('wrong', '⚠️ ' + (e.message || 'AI connection failed').substring(0, 50));
     return null;
   }
 }
