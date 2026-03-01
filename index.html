@@ -691,6 +691,9 @@ function resumeThinking() {
 }
 function stopThinking() {
   if (isThinking) { thinkTotal += Date.now() - thinkStart; isThinking = false; }
+  updateTimerDisplay();
+}
+function countAnswer() {
   answeredCount++; updateTimerDisplay();
 }
 
@@ -1392,6 +1395,7 @@ function flagsReveal() {
 }
 
 function flagsNext() {
+  countAnswer();
   if (flagIdx < FLAGS.length-1) {
     const d = document.getElementById('flags-display');
     d.classList.add('transitioning');
@@ -2112,6 +2116,7 @@ Be like: "That's okay! Let me help. See this flag? It has [describe]. The countr
 
 function goNext() {
   clearTimeout(silenceTimer);
+  countAnswer(); // Count this flag as answered
   if (flagIdx < FLAGS.length - 1) {
     const d = document.getElementById('flags-display');
     d.classList.add('transitioning');
