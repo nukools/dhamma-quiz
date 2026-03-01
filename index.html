@@ -273,8 +273,8 @@
     <p class="main-subtitle">🌍 Guess the Flag! 🌍</p>
     <p class="subtitle">Learn English with AI Teacher 🧠✨</p>
     <div class="mode-selector">
-      <button class="mode-btn active" id="mode-ai" onclick="setMode('ai')">🧠 AI Teacher</button>
-      <button class="mode-btn" id="mode-manual" onclick="setMode('manual')">👆 Manual Mode</button>
+      <button class="mode-btn" id="mode-ai" onclick="setMode('ai')">🧠 AI Teacher (5 flags)</button>
+      <button class="mode-btn active" id="mode-manual" onclick="setMode('manual')">🏁 Speed Show (50 flags)</button>
     </div>
     <div id="ai-key-section" style="margin:12px auto;max-width:360px;text-align:center">
       <div id="whisper-active-badge" class="hidden" style="background:rgba(46,204,113,0.15);color:#2ecc71;padding:8px 18px;border-radius:20px;font-size:14px;font-weight:600">
@@ -369,6 +369,7 @@
       </div>
     </div>
     <p class="end-sub">Thank you for watching! 🌍🎉</p>
+    <button id="btn-ai-round" class="btn btn-start hidden" onclick="startAIRound()" style="margin:10px auto;font-size:20px">🧠 Start AI English Teacher Round (5 flags)</button>
     <button class="btn btn-ghost" onclick="restart()">Play Again</button>
   </div>
 </div>
@@ -444,11 +445,18 @@ const FLAGS = [
 
 const CONFETTI_COLORS = ["#FF6B6B","#4ECDC4","#FFE66D","#A8E6CF","#FF8B94","#7EC8E3","#F7DC6F","#BB8FCE"];
 
+// AI Mode: 5 curated flags with clear pronunciation for the show
+const AI_FLAG_CODES = ['jp', 'br', 'ca', 'in', 'it'];
+const AI_FLAGS = AI_FLAG_CODES.map(code => FLAGS.find(f => f.code === code)).filter(Boolean);
+
+// activeFlags switches between full set (Manual) and curated set (AI)
+let activeFlags = FLAGS;
+
 let flagIdx = 0;
 let thinkStart = 0, thinkTotal = 0, timerInterval = null, answeredCount = 0, isThinking = false;
 let currentFlagThink = 0;
 let correctCount = 0;
-let mode = 'ai';
+let mode = 'manual';
 let isListening = false;
 let recognition = null;
 let synth = window.speechSynthesis;
@@ -464,7 +472,7 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function getQuestion() {
   const num = flagIdx + 1;
-  const pct = Math.round(num / FLAGS.length * 100);
+  const pct = Math.round(num / activeFlags.length * 100);
 
   if (num === 1) return "Alright Dhamma, here we go! Our very first flag. Do you know which country this is?";
   if (num === 2) return "Okay, flag number 2! Which country does this flag belong to?";
@@ -475,7 +483,7 @@ function getQuestion() {
   if (num === 25) return "Halfway there! Can you keep going? What country is this?";
   if (num === 40) return "Only ten more to go! You're almost a flag champion! Which country?";
   if (num === 48) return "Almost at the finish line! Just a few more! What country is this?";
-  if (num === FLAGS.length) return "This is the very last flag! Make it count, Dhamma! Which country?";
+  if (num === activeFlags.length) return "This is the very last flag! Make it count, Dhamma! Which country?";
 
   // After a streak
   if (streak >= 5) return pick([
@@ -640,11 +648,11 @@ function getRepeatFail(name) {
 }
 
 function getEndMessage() {
-  const pct = Math.round(firstTryCorrect / FLAGS.length * 100);
+  const pct = Math.round(firstTryCorrect / activeFlags.length * 100);
   if (pct >= 90) return "Dhamma, you are absolutely incredible! " + correctCount + " flags correct! You're a true flag champion! Give Dhamma a big round of applause everyone!";
   if (pct >= 70) return "Wow Dhamma, " + correctCount + " flags correct! That is amazing for a 4 year old! Everyone please give Dhamma a big hand!";
   if (pct >= 50) return "Great job Dhamma! You got " + correctCount + " flags! You learned so many countries today! Let's all clap for Dhamma!";
-  return "Well done Dhamma! You tried all " + FLAGS.length + " flags and learned so many new countries! You're a brave superstar! Clap clap clap!";
+  return "Well done Dhamma! You tried all " + activeFlags.length + " flags and learned so many new countries! You're a brave superstar! Clap clap clap!";
 }
 
 // === MODE SELECTION ===
@@ -663,15 +671,19 @@ function formatTime(ms) {
 }
 
 function updateTimerDisplay() {
+  // currentThink = time child is thinking RIGHT NOW (live counter)
   const currentThink = isThinking ? (Date.now() - thinkStart) : 0;
-  const totalElapsed = thinkTotal + currentThink;
+  
+  // THINKING TIME clock = how long child has been thinking on THIS flag
   document.getElementById('timer-clock').textContent = formatTime(currentFlagThink + currentThink);
-  // AVG = total thinking time / flags completed
+  
+  // AVG = average thinking time per completed flag
   if (answeredCount > 0) {
     const avg = Math.round((thinkTotal / 1000) / answeredCount);
     document.getElementById('timer-avg').textContent = avg + 's';
   }
-  // Score: correct / flags seen (including current)
+  
+  // SCORE = correct / total flags seen so far
   document.getElementById('timer-score').textContent = correctCount + '/' + (flagIdx + 1);
 }
 
@@ -686,7 +698,10 @@ function startTimer() {
   timerInterval = setInterval(updateTimerDisplay, 200);
 }
 
+// startThinking: child starts thinking (flag shown, AI question asked)
 function startThinking() { thinkStart = Date.now(); isThinking = true; }
+
+// pauseThinking: temporarily stop counting (TTS speaking, AI processing)
 function pauseThinking() {
   if (isThinking) { 
     const elapsed = Date.now() - thinkStart;
@@ -695,9 +710,13 @@ function pauseThinking() {
     isThinking = false; 
   }
 }
+
+// resumeThinking: child's turn again (after TTS/AI finishes)
 function resumeThinking() {
   if (!isThinking) { thinkStart = Date.now(); isThinking = true; }
 }
+
+// stopThinking: child answered — stop counting for this flag
 function stopThinking() {
   if (isThinking) { 
     const elapsed = Date.now() - thinkStart;
@@ -707,9 +726,17 @@ function stopThinking() {
   }
   updateTimerDisplay();
 }
+
+// countAnswer: flag resolved (correct or revealed) — prep for next flag
 function countAnswer() {
   answeredCount++; 
   currentFlagThink = 0; // Reset per-flag timer for next flag
+  updateTimerDisplay();
+}
+
+// resetFlagThink: called when a new flag starts
+function resetFlagThink() {
+  currentFlagThink = 0;
   updateTimerDisplay();
 }
 
@@ -718,10 +745,10 @@ function stopTimer() {
   clearInterval(timerInterval);
   const elapsed = thinkTotal;
   document.getElementById('timer-bar').classList.add('hidden');
-  document.getElementById('stat-flags').textContent = FLAGS.length;
+  document.getElementById('stat-flags').textContent = activeFlags.length;
   document.getElementById('stat-correct').textContent = correctCount;
   document.getElementById('stat-time').textContent = formatTime(elapsed);
-  const avg = FLAGS.length > 0 ? Math.round((elapsed / 1000) / FLAGS.length) : 0;
+  const avg = activeFlags.length > 0 ? Math.round((elapsed / 1000) / activeFlags.length) : 0;
   document.getElementById('stat-avg').textContent = avg + 's';
 }
 
@@ -1324,10 +1351,10 @@ function levenshtein(a, b) {
 
 // === FLAGS RENDERING ===
 function renderFlag() {
-  const f = FLAGS[flagIdx];
+  const f = activeFlags[flagIdx];
   document.getElementById('flag-img').src = 'https://flagcdn.com/w1280/' + f.code + '.png';
-  document.getElementById('flags-counter').textContent = (flagIdx+1) + ' / ' + FLAGS.length;
-  document.getElementById('flags-progress').style.width = ((flagIdx+1)/FLAGS.length*100)+'%';
+  document.getElementById('flags-counter').textContent = (flagIdx+1) + ' / ' + activeFlags.length;
+  document.getElementById('flags-progress').style.width = ((flagIdx+1)/activeFlags.length*100)+'%';
   document.getElementById('flags-question').classList.remove('hidden');
   document.getElementById('flags-answer').classList.add('hidden');
   updateButtons();
@@ -1355,12 +1382,14 @@ function showNextButton() {
     document.getElementById('flags-reveal-btn').classList.add('hidden');
     const nb = document.getElementById('flags-next-btn');
     nb.classList.remove('hidden');
-    nb.textContent = flagIdx < FLAGS.length-1 ? 'Next ▶' : 'End Show 🎉';
+    nb.textContent = flagIdx < activeFlags.length-1 ? 'Next ▶' : 'End Show 🎉';
   }
 }
 
 // === START ===
 function startFlags() {
+  // Set active flag list based on mode
+  activeFlags = (mode === 'ai') ? AI_FLAGS : FLAGS;
   flagIdx = 0; correctCount = 0; firstTryCorrect = 0; answered = false; streak = 0;
   showScreen('flags');
   renderFlag();
@@ -1405,14 +1434,14 @@ function startFlags() {
 // === MANUAL MODE ===
 function flagsReveal() {
   stopThinking();
-  revealAnswer(FLAGS[flagIdx].name);
+  revealAnswer(activeFlags[flagIdx].name);
   showNextButton();
   fireConfetti();
 }
 
 function flagsNext() {
   countAnswer();
-  if (flagIdx < FLAGS.length-1) {
+  if (flagIdx < activeFlags.length-1) {
     const d = document.getElementById('flags-display');
     d.classList.add('transitioning');
     setTimeout(() => { flagIdx++; renderFlag(); if(mode==='ai') aiStartRound(); else startThinking(); d.classList.remove('transitioning'); }, 350);
@@ -1444,7 +1473,7 @@ function resetSilenceTimer() {
 function onSilence() {
   if (answered || !aiActive || isSpeaking) return;
   nudgeCount++;
-  const f = FLAGS[flagIdx];
+  const f = activeFlags[flagIdx];
 
   if (useAI()) {
     if (nudgeCount === 2 && attempts < MAX_HINTS) attempts++;
@@ -1510,14 +1539,15 @@ function aiStartRound() {
   clearTimeout(window._repeatTimeout);
   clearTimeout(silenceTimer);
   isThinking = false;
+  resetFlagThink(); // Reset per-flag timer for new flag
   hideHeard();
 
-  const f = FLAGS[flagIdx];
+  const f = activeFlags[flagIdx];
   if (useAI()) {
     setAIStatus('speaking', '🧠 Getting ready...');
-    askAI(`SITUATION: New flag! Ask Dhamma about flag #${flagIdx + 1} of ${FLAGS.length}.
-${flagIdx === 0 ? '🎬 FIRST FLAG! Welcome Dhamma to the game. Be super excited! Introduce yourself briefly as his flag teacher.' : ''}
-${flagIdx === FLAGS.length - 1 ? '🏁 LAST FLAG! Build excitement — this is the grand finale!' : ''}
+    askAI(`SITUATION: New flag! Ask Dhamma about flag #${flagIdx + 1} of ${activeFlags.length}.
+${flagIdx === 0 ? '🎬 FIRST FLAG! This is the AI Teacher round — Dhamma already showed he knows 50 flags, now YOU are testing him with 5 flags while teaching English! Be super excited! Introduce yourself as his English teacher and flag challenger.' : ''}
+${flagIdx === activeFlags.length - 1 ? '🏁 LAST FLAG! Build excitement — this is the grand finale!' : ''}
 ${streak >= 3 ? '🔥 Dhamma is on a ' + streak + '-flag streak! Reference this!' : ''}
 ${flagIdx > 0 && flagIdx % 10 === 0 ? '🎯 Milestone! Flag ' + (flagIdx+1) + '! Mention the progress.' : ''}
 ${correctCount > 0 && flagIdx > 0 ? 'Last flag result: ' + (conversationHistory.slice(-3).find(h => h.role === 'teacher')?.content || 'moved on') : ''}
@@ -1574,7 +1604,7 @@ let questionsUsed = [];
 const MAX_HISTORY = 20;
 
 function addToHistory(role, content, meta) {
-  conversationHistory.push({ role, content, flag: FLAGS[flagIdx]?.name, ...meta });
+  conversationHistory.push({ role, content, flag: activeFlags[flagIdx]?.name, ...meta });
   if (conversationHistory.length > MAX_HISTORY * 2) {
     conversationHistory = conversationHistory.slice(-MAX_HISTORY * 2);
   }
@@ -1612,7 +1642,7 @@ function buildHistory() {
 }
 
 function getAISystemPrompt() {
-  const flag = FLAGS[flagIdx];
+  const flag = activeFlags[flagIdx];
   const flagNames = FLAGS.map(f => f.name).join(', ');
 
   return `You are Dhamma's personal AI English teacher — warm, fun, genuinely caring, and incredibly smart. You're having a REAL conversation with a brilliant 4-year-old Thai boy named Dhamma while playing a flag quiz game. Your goal: teach English naturally through every interaction.
@@ -1650,10 +1680,10 @@ After unclear speech — teach about the flag itself:
 Vocabulary to teach: colors (red, blue, white, yellow, green), shapes (star, circle, cross, stripe, crescent), size (big, small, huge, tiny), position (top, bottom, middle), geography (island, mountain, river, ocean), animals, food, famous things.
 
 ═══ CURRENT GAME STATE ═══
-Flag: ${flagIdx + 1} of ${FLAGS.length} | Score: ${correctCount} correct, ${firstTryCorrect} first-try | Streak: ${streak}
+Flag: ${flagIdx + 1} of ${activeFlags.length} | Score: ${correctCount} correct, ${firstTryCorrect} first-try | Streak: ${streak}
 Current flag: ${flag.name} | Looks like: ${flag.look} | Continent: ${flag.continent}
 Fun fact: ${flag.hint} | Attempts used: ${attempts} of ${MAX_HINTS}
-${streak >= 3 ? '🔥 ON A ' + streak + '-FLAG STREAK!' : ''}${flagIdx === 0 ? ' | 🎬 FIRST FLAG — introduce the game excitedly!' : ''}${flagIdx === FLAGS.length - 1 ? ' | 🏁 LAST FLAG!' : ''}
+${streak >= 3 ? '🔥 ON A ' + streak + '-FLAG STREAK!' : ''}${flagIdx === 0 ? ' | 🎬 FIRST FLAG — introduce the game excitedly!' : ''}${flagIdx === activeFlags.length - 1 ? ' | 🏁 LAST FLAG!' : ''}
 
 ⚠️ ACCURACY RULE: ONLY describe the flag using the "Looks like" info above. Do NOT invent colors, shapes, or symbols. If unsure, say "Look at this flag!" instead of guessing details.
 
@@ -1829,7 +1859,7 @@ async function askAI(userMessage) {
 
 function processAnswer(transcripts) {
   if (answered) return;
-  const f = FLAGS[flagIdx];
+  const f = activeFlags[flagIdx];
   stopSpeaking();
   stopThinking(); // Stop timer immediately when Dhamma answers
 
@@ -2097,7 +2127,7 @@ Say "${repeatName}" clearly, tell him good try, move on happily. 1-2 sentences. 
 
   if (isIDK) {
     idkCount++;
-    const f = FLAGS[flagIdx];
+    const f = activeFlags[flagIdx];
 
     if (idkCount === 1 && attempts < MAX_HINTS) {
       attempts++;
@@ -2135,7 +2165,7 @@ Be like: "That's okay! Let me help. See this flag? It has [describe]. The countr
 function goNext() {
   clearTimeout(silenceTimer);
   countAnswer(); // Count this flag as answered
-  if (flagIdx < FLAGS.length - 1) {
+  if (flagIdx < activeFlags.length - 1) {
     const d = document.getElementById('flags-display');
     d.classList.add('transitioning');
     setTimeout(() => { flagIdx++; renderFlag(); aiStartRound(); d.classList.remove('transitioning'); }, 400);
@@ -2151,10 +2181,22 @@ function endShow() {
   if (hinted > 0) correctText += ' (' + firstTryCorrect + '⚡+' + hinted + '💡)';
   document.getElementById('stat-correct').textContent = correctText;
 
+  // Show AI Round button only after Manual mode (and only if API key exists)
+  const aiBtn = document.getElementById('btn-ai-round');
+  if (mode === 'manual' && useAI()) {
+    aiBtn.classList.remove('hidden');
+    document.querySelector('.end-title').textContent = '50 Flags Complete! 🎉';
+    document.querySelector('.end-sub').textContent = 'Now let AI test Dhamma with 5 random flags + teach English! 🧠';
+  } else {
+    aiBtn.classList.add('hidden');
+    document.querySelector('.end-title').textContent = 'Amazing Job, Dhamma! 🏆';
+    document.querySelector('.end-sub').textContent = 'Thank you for watching! 🌍🎉';
+  }
+
   if (useAI()) {
-    const pct = Math.round(firstTryCorrect / FLAGS.length * 100);
+    const pct = Math.round(firstTryCorrect / activeFlags.length * 100);
     askAI(`SITUATION: THE QUIZ IS FINISHED! 🎉🎊
-RESULTS: ${correctCount} correct out of ${FLAGS.length} flags, ${firstTryCorrect} on first try (${pct}% first-try accuracy).
+RESULTS: ${correctCount} correct out of ${activeFlags.length} flags, ${firstTryCorrect} on first try (${pct}% first-try accuracy).
 English words taught this session: ${wordsTaught.length > 0 ? wordsTaught.join(', ') : 'many new words'}
 
 Give a HUGE, heartfelt celebration! Make Dhamma feel like a champion!
@@ -2198,7 +2240,7 @@ function parentOverride() {
   correctCount++;
   if (attempts === 0) { firstTryCorrect++; streak++; } else { streak = 0; }
   updateTimerDisplay();
-  const f = FLAGS[flagIdx];
+  const f = activeFlags[flagIdx];
   revealAnswer(f.name);
   fireConfetti();
   hideHeard();
@@ -2229,7 +2271,7 @@ function aiSkip() {
   answered = true;
   streak = 0;
   stopSpeaking(); stopThinking();
-  const f = FLAGS[flagIdx];
+  const f = activeFlags[flagIdx];
   revealAnswer(f.name);
   setAIStatus('idle', '⏭️ ' + f.name);
   speak(pick([
@@ -2252,6 +2294,43 @@ function restart() {
   clearInterval(timerInterval);
   document.getElementById('timer-bar').classList.add('hidden');
   showScreen('start');
+}
+
+function startAIRound() {
+  // Switch to AI mode with 5 curated flags
+  mode = 'ai';
+  activeFlags = AI_FLAGS;
+  document.getElementById('mode-ai').classList.add('active');
+  document.getElementById('mode-manual').classList.remove('active');
+  // Reset all state
+  flagIdx = 0; thinkTotal = 0; answeredCount = 0; correctCount = 0; firstTryCorrect = 0; isThinking = false;
+  answered = false; aiActive = false; attempts = 0; streak = 0;
+  currentFlagThink = 0;
+  window._repeatMode = false; clearTimeout(window._repeatTimeout);
+  conversationHistory = [];
+  wordsTaught = [];
+  questionsUsed = [];
+  stopListening(); stopSpeaking();
+  clearInterval(timerInterval);
+  // Go directly to flags screen with AI
+  showScreen('flags');
+  renderFlag();
+  // iOS audio warmup then start
+  synth.cancel();
+  const warmup = new SpeechSynthesisUtterance('.');
+  warmup.volume = 0.01; warmup.rate = 2;
+  let warmupDone = false;
+  function onWarmupDone() {
+    if (warmupDone) return;
+    warmupDone = true;
+    clearTimeout(warmupSafety);
+    startTimer();
+    aiStartRound();
+  }
+  warmup.onend = onWarmupDone;
+  warmup.onerror = onWarmupDone;
+  const warmupSafety = setTimeout(onWarmupDone, 800);
+  synth.speak(warmup);
 }
 
 // Preload flags
