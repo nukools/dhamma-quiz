@@ -1435,32 +1435,42 @@ function startFlags() {
 
 // === MANUAL MODE ===
 function flagsReveal() {
-  // Got it! = correct answer → count score + confetti + auto-advance
   stopThinking();
+  const name = activeFlags[flagIdx].name;
   correctCount++;
   firstTryCorrect++;
   streak++;
-  revealAnswer(activeFlags[flagIdx].name);
+  revealAnswer(name);
   fireConfetti();
   updateTimerDisplay();
-  // Hide manual buttons during reveal
   document.getElementById('flags-reveal-btn').classList.add('hidden');
   document.getElementById('flags-skip-btn').classList.add('hidden');
-  // Auto-advance after brief pause
-  setTimeout(() => flagsNext(), 1200);
+  let advanced = false;
+  function advance() { if (!advanced) { advanced = true; flagsNext(); } }
+  const utter = new SpeechSynthesisUtterance(name);
+  utter.lang = 'en-US'; utter.rate = 1.0;
+  utter.onend = advance;
+  utter.onerror = advance;
+  setTimeout(advance, 3000);
+  synth.speak(utter);
 }
 
 function flagsSkip() {
-  // Skip = don't know → reveal answer, no score, auto-advance
   stopThinking();
+  const name = activeFlags[flagIdx].name;
   streak = 0;
-  revealAnswer(activeFlags[flagIdx].name);
+  revealAnswer(name);
   updateTimerDisplay();
-  // Hide manual buttons during reveal
   document.getElementById('flags-reveal-btn').classList.add('hidden');
   document.getElementById('flags-skip-btn').classList.add('hidden');
-  // Auto-advance after brief pause
-  setTimeout(() => flagsNext(), 1500);
+  let advanced = false;
+  function advance() { if (!advanced) { advanced = true; flagsNext(); } }
+  const utter = new SpeechSynthesisUtterance(name);
+  utter.lang = 'en-US'; utter.rate = 1.0;
+  utter.onend = advance;
+  utter.onerror = advance;
+  setTimeout(advance, 3000);
+  synth.speak(utter);
 }
 
 function flagsNext() {
