@@ -1795,11 +1795,27 @@ function processAnswer(transcripts) {
     lastWrong = heardText;
     setAIStatus('speaking', '🧠 Thinking...');
 
+    // Pre-analysis: help AI by flagging likely gibberish/non-answers
+    const words = heardText.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length >= 2);
+    const uniqueWords = [...new Set(words)];
+    const wordCounts = {};
+    words.forEach(w => { wordCounts[w] = (wordCounts[w] || 0) + 1; });
+    const mostRepeated = Math.max(...Object.values(wordCounts), 0);
+    const nonFillers = words.filter(w => !['um','uh','umm','hmm','oh','ah','ha','he','hi','ho','la','da','ba','na','ka','ga','wow','hello','yes','no','ok','okay','is','it','the','a','an','and','but','so','like','well','let','me','see','think','what','this','that','dont','need','want','to','do','can','my','i','you','we','not','cool','nice','pretty','look','mama','papa','daddy','mommy','mom','dad','go','one','two','three','flag','color','red','blue','know','sure','hard','easy','fun','stop','more','next','wait','here','there','where','how','why','who'].includes(w));
+    const hasRepeat = mostRepeated >= 3;
+    const isShort = nonFillers.length === 0;
+    const looksLikeGibberish = hasRepeat || isShort || (words.length >= 5 && uniqueWords.length <= 3);
+
+    let preAnalysis = '';
+    if (looksLikeGibberish) {
+      preAnalysis = `\n\n⚠️ SPEECH ANALYSIS: "${heardText}" appears to be babbling/random sounds/non-answer (${hasRepeat ? 'repeated words detected' : ''}${isShort ? 'no meaningful words' : ''}). This is very likely NOT a country guess. Default to action:"unclear" unless you can CLEARLY identify a specific country name that Dhamma intended to say.`;
+    }
+
     askAI(`SITUATION: Dhamma just answered! 
 He said: "${heardText}"
 This is attempt ${attempts} of ${MAX_HINTS} on the ${f.name} flag.
 ${attempts === 1 ? 'First try!' : 'He already tried ' + (attempts-1) + ' time(s) before.'}
-${lastWrong && lastWrong !== heardText ? 'Previous wrong answer was: "' + lastWrong + '"' : ''}
+${lastWrong && lastWrong !== heardText ? 'Previous wrong answer was: "' + lastWrong + '"' : ''}${preAnalysis}
 
 Judge what Dhamma said and respond as his teacher.`).then(result => {
       if (answered) return;
@@ -1807,8 +1823,35 @@ Judge what Dhamma said and respond as his teacher.`).then(result => {
 
       const rawAction = result.action || (result.correct === true ? 'correct' : result.correct === false ? 'wrong' : 'wrong');
       const guess = (result.guess || '').toLowerCase();
-      // If GPT says "wrong" but guess is unclear/none/empty, treat as unclear
-      const action = (rawAction === 'wrong' && (!guess || guess === 'unclear' || guess === 'none' || guess === 'unknown' || guess === 'gibberish')) ? 'unclear' : rawAction;
+      
+      // Safety net: override to "unclear" if GPT misjudges gibberish
+      let action = rawAction;
+      let overriddenToUnclear = false;
+      // 1. GPT says wrong but no real country guess
+      if (rawAction === 'wrong' && (!guess || guess === 'unclear' || guess === 'none' || guess === 'unknown' || guess === 'gibberish')) {
+        action = 'unclear';
+        overriddenToUnclear = true;
+      }
+      // 2. Text was flagged as gibberish AND GPT's guess doesn't match what was actually said
+      if (looksLikeGibberish && rawAction === 'wrong' && guess !== 'none') {
+        const heardLower = heardText.toLowerCase();
+        const guessInText = guess.length >= 3 && (heardLower.includes(guess) || similarity(heardLower, guess) > 0.5);
+        if (!guessInText) {
+          action = 'unclear';
+          overriddenToUnclear = true;
+        }
+      }
+
+      // If we overrode to unclear, use a generic encouraging response instead of GPT's wrong-answer response
+      const unclearFallbacks = [
+        "I didn't catch a country name there, Dhamma! Look at this flag — what country do you think it is?",
+        "Hmm, I didn't hear a country! Take a good look at the colors on this flag. Which country?",
+        "Let's try again, Dhamma! Look at this flag carefully. Can you name the country?",
+        "I'm listening! Look at the flag and tell me which country it's from!",
+      ];
+      if (overriddenToUnclear) {
+        result.response = unclearFallbacks[Math.floor(Math.random() * unclearFallbacks.length)];
+      }
 
       if (action === 'correct' || result.correct === true) {
         hideHeard();
@@ -1973,7 +2016,10 @@ Say "${repeatName}" clearly, tell him good try, move on happily. 1-2 sentences. 
     "i forgot","no clue","what is it","tell me","i give up","give up","pass","skip",
     "i don't remember","don't remember","hint","clue","help",
     "don't get it","i don't get it","no way","i can not","cannot","too hard","so hard",
-    "what is this","i don't understand","don't understand","i have no idea"];
+    "what is this","i don't understand","don't understand","i have no idea",
+    "don't need to think","i don't need","don't want to","i don't want",
+    "i'm tired","im tired","boring","bored","stop","enough","no more",
+    "next one","next flag","move on","skip this"];
   const isIDK = idkPhrases.some(p => heard.includes(p));
 
   if (isIDK) {
