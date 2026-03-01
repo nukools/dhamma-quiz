@@ -1478,6 +1478,13 @@ async function askGPTJudge(heardText, flag, attemptNum, maxHints) {
 
   const flagNames = FLAGS.map(f => f.name).join(', ');
   const hintLevel = attemptNum <= maxHints ? attemptNum : 'reveal';
+  const hintInstruction = attemptNum === 1
+    ? 'Give a gentle hint about the flag colors or design (e.g., "Look at the big star on the flag!")'
+    : attemptNum === 2
+    ? 'Give a stronger hint with continent or a famous thing about this country'
+    : attemptNum === 3
+    ? 'Give a very strong hint, almost give the answer away (e.g., first letter, rhymes with...)'
+    : 'Kindly reveal the answer: "This is ' + flag.name + '!"';
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1489,29 +1496,42 @@ async function askGPTJudge(heardText, flag, attemptNum, maxHints) {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         max_tokens: 200,
-        temperature: 0.8,
+        temperature: 0.7,
         messages: [{
           role: 'system',
-          content: `You are a fun, encouraging AI quiz host for a 4-year-old Thai boy named Dhamma in a flag guessing game. You speak English in short, simple sentences.
+          content: `You are a fun, warm AI quiz host talking to Dhamma, a 4-year-old Thai boy, in a flag guessing game. Speak simple English, 1-2 short sentences max.
 
 CURRENT FLAG: ${flag.name} (looks like: ${flag.look})
 ALL COUNTRIES IN QUIZ: ${flagNames}
+ATTEMPT: ${attemptNum} of ${maxHints}
 
-The child has a Thai accent. Speech recognition may mishear words (e.g., "tie land"=Thailand, "chai na"=China, "ya pan"=Japan).
+The child has a Thai accent. Speech-to-text often mishears (e.g., "chai na"=China, "tie land"=Thailand, "ya pan"=Japan, "boo tan"=Bhutan, "singabo"=Singapore).
 
-RULES:
-1. First, decide: is the child ACTUALLY trying to say "${flag.name}"? Consider accent and speech recognition errors. If yes, set correct=true.
-2. If wrong, figure out what country they likely meant based on what was heard.
-3. Give a response that is natural, fun, and references what you heard them say.
-4. Hint level ${hintLevel}: ${attemptNum === 1 ? 'gentle hint about flag colors/design' : attemptNum === 2 ? 'stronger hint with continent/region' : attemptNum === 3 ? 'very strong hint, almost give away' : 'reveal the answer kindly'}
-5. Keep response under 2 sentences. Be warm and encouraging.
-6. NEVER say the correct answer in hints (unless revealing).
+STEP 1 — JUDGE: Is "${heardText}" the child's attempt to say "${flag.name}"? Consider:
+- Thai accent: r→l, v→w, th→t, final consonants dropped
+- Speech recognition errors: words may be split, merged, or garbled
+- If it sounds close phonetically, set correct=true
 
-Respond ONLY in this JSON format:
-{"correct":true/false,"guess":"what country they likely said","response":"your natural response to Dhamma"}`
+STEP 2 — If UNCLEAR (gibberish, repeated syllables, noise like "kala kala", "bah bah", etc.):
+- Set correct=false, guess="unclear"
+- Response: kindly ask Dhamma to try again more slowly, maybe with a small hint about the flag
+
+STEP 3 — If WRONG but clearly a different country name:
+- Set correct=false, guess="[country they said]"
+- Reference what they said: "I heard [country], but look at this flag..."
+- ${hintInstruction}
+
+STEP 4 — If CORRECT:
+- Set correct=true
+- Give a fun celebration!
+
+NEVER say "${flag.name}" in your response unless revealing (attempt > ${maxHints}).
+
+JSON only, no other text:
+{"correct":true/false,"guess":"country name or unclear","response":"your response to Dhamma"}`
         }, {
           role: 'user',
-          content: `Speech recognition heard: "${heardText}"`
+          content: `Whisper heard: "${heardText}"`
         }]
       })
     });
@@ -1611,6 +1631,11 @@ function processAnswer(transcripts) {
         fireConfetti();
         setAIStatus('correct', '✅ ' + f.name + ' (Smart AI)');
         speak(result.response || ("Yes, that's " + f.name + "! Great job Dhamma!"), () => goNext());
+      } else if (result && result.guess === 'unclear') {
+        // Speech was unclear — don't count as attempt, ask to try again
+        attempts--; // undo the wrong attempt count
+        setAIStatus('listening', '🎤 Try again!');
+        speak(result.response || "I didn't catch that, Dhamma! Can you say it again slowly?");
       } else if (attempts <= MAX_HINTS) {
         // Wrong — GPT gives natural hint
         const guessedName = result?.guess || heardText;
