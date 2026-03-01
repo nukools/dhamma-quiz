@@ -1611,28 +1611,39 @@ function processAnswer(transcripts) {
   // Check if heard text resembles ANY country name
   function isGibberish(text) {
     const clean = text.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-    // Too short
     if (clean.length < 3) return true;
-    // Repeated syllables pattern: "la la la", "kala kala"
-    const words = clean.split(/\s+/);
-    const unique = [...new Set(words)];
-    if (words.length >= 3 && unique.length <= 2) return true;
-    // Check if it sounds like ANY country
+
+    // Strip filler words first (kid might say "umm is china")
+    const fillers = ['um','uh','umm','ummm','hmm','hm','oh','ah','is','it','the','a','an','like','so','and','but','okay','well','err','erm','let','me','think','see'];
+    const words = clean.split(/\s+/).filter(w => !fillers.includes(w) && w.length >= 2);
+
+    // If nothing left after removing fillers → gibberish
+    if (words.length === 0) return true;
+
+    // Check if ANY remaining word sounds like a country
     let bestScore = 0;
+    const combined = words.join(' ');
     for (const flag of FLAGS) {
       for (const alias of flag.aliases) {
-        const s = Math.max(similarity(clean, alias), similarity(phonetic(clean), phonetic(alias)));
+        // Check full cleaned text
+        const s = Math.max(similarity(combined, alias), similarity(phonetic(combined), phonetic(alias)));
         if (s > bestScore) bestScore = s;
-        // Also check individual words
+        // Check individual words
         for (const w of words) {
-          if (w.length >= 3) {
-            const ws = Math.max(similarity(w, alias), similarity(phonetic(w), phonetic(alias)));
-            if (ws > bestScore) bestScore = ws;
-          }
+          const ws = Math.max(similarity(w, alias), similarity(phonetic(w), phonetic(alias)));
+          if (ws > bestScore) bestScore = ws;
+        }
+        // Check consecutive word pairs
+        for (let i = 0; i < words.length - 1; i++) {
+          const pair = words[i] + ' ' + words[i+1];
+          const ps = Math.max(similarity(pair, alias), similarity(phonetic(pair), phonetic(alias)));
+          if (ps > bestScore) bestScore = ps;
         }
       }
     }
-    return bestScore < 0.4; // nothing even close to a country
+
+    // If nothing even close to a country → gibberish
+    return bestScore < 0.4;
   }
 
   // If gibberish — handle locally, don't waste GPT call
