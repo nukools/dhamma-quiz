@@ -1608,6 +1608,46 @@ function processAnswer(transcripts) {
     return;
   }
 
+  // Check if heard text resembles ANY country name
+  function isGibberish(text) {
+    const clean = text.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+    // Too short
+    if (clean.length < 3) return true;
+    // Repeated syllables pattern: "la la la", "kala kala"
+    const words = clean.split(/\s+/);
+    const unique = [...new Set(words)];
+    if (words.length >= 3 && unique.length <= 2) return true;
+    // Check if it sounds like ANY country
+    let bestScore = 0;
+    for (const flag of FLAGS) {
+      for (const alias of flag.aliases) {
+        const s = Math.max(similarity(clean, alias), similarity(phonetic(clean), phonetic(alias)));
+        if (s > bestScore) bestScore = s;
+        // Also check individual words
+        for (const w of words) {
+          if (w.length >= 3) {
+            const ws = Math.max(similarity(w, alias), similarity(phonetic(w), phonetic(alias)));
+            if (ws > bestScore) bestScore = ws;
+          }
+        }
+      }
+    }
+    return bestScore < 0.4; // nothing even close to a country
+  }
+
+  // If gibberish — handle locally, don't waste GPT call
+  if (isGibberish(heardText)) {
+    // Don't count as attempt
+    setAIStatus('listening', '🎤 Try again!');
+    speak(pick([
+      "I didn't quite hear you, Dhamma! Can you say it again? Look at this flag, it's " + f.look + "!",
+      "Hmm, I couldn't understand that. Try again slowly! This flag has " + f.look + ".",
+      "Can you say that one more time, Dhamma? Take your time! Look at the colors, " + f.look + ".",
+      "Oops, I missed that! Say the country name nice and loud for me! This flag is " + f.look + ".",
+    ]));
+    return;
+  }
+
   // Normal wrong answer — use GPT for smart response
   attempts++;
   lastWrong = heardText;
@@ -1632,8 +1672,8 @@ function processAnswer(transcripts) {
         setAIStatus('correct', '✅ ' + f.name + ' (Smart AI)');
         speak(result.response || ("Yes, that's " + f.name + "! Great job Dhamma!"), () => goNext());
       } else if (result && result.guess === 'unclear') {
-        // Speech was unclear — don't count as attempt, ask to try again
-        attempts--; // undo the wrong attempt count
+        // Speech was unclear — don't count as attempt
+        attempts--;
         setAIStatus('listening', '🎤 Try again!');
         speak(result.response || "I didn't catch that, Dhamma! Can you say it again slowly?");
       } else if (attempts <= MAX_HINTS) {
@@ -1645,7 +1685,6 @@ function processAnswer(transcripts) {
         doReveal(f);
       }
     }).catch(() => {
-      // GPT failed — fallback to template
       if (attempts <= MAX_HINTS) {
         setAIStatus('wrong', '💡 Hint ' + attempts + '/3 — "' + heardText + '"');
         speak(getWrongReaction(heardText, f) + " " + getHintMessage(f, attempts));
