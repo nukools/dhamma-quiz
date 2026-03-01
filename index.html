@@ -446,6 +446,7 @@ const CONFETTI_COLORS = ["#FF6B6B","#4ECDC4","#FFE66D","#A8E6CF","#FF8B94","#7EC
 
 let flagIdx = 0;
 let thinkStart = 0, thinkTotal = 0, timerInterval = null, answeredCount = 0, isThinking = false;
+let currentFlagThink = 0;
 let correctCount = 0;
 let mode = 'ai';
 let isListening = false;
@@ -662,39 +663,54 @@ function formatTime(ms) {
 }
 
 function updateTimerDisplay() {
-  const elapsed = thinkTotal + (isThinking ? (Date.now() - thinkStart) : 0);
-  document.getElementById('timer-clock').textContent = formatTime(elapsed);
-  // AVG = only completed flags (exclude current in-progress flag)
+  const currentThink = isThinking ? (Date.now() - thinkStart) : 0;
+  const totalElapsed = thinkTotal + currentThink;
+  document.getElementById('timer-clock').textContent = formatTime(currentFlagThink + currentThink);
+  // AVG = total thinking time / flags completed
   if (answeredCount > 0) {
     const avg = Math.round((thinkTotal / 1000) / answeredCount);
     document.getElementById('timer-avg').textContent = avg + 's';
   }
-  document.getElementById('timer-score').textContent = correctCount + '/' + answeredCount;
+  // Score: correct / flags seen (including current)
+  document.getElementById('timer-score').textContent = correctCount + '/' + (flagIdx + 1);
 }
 
 function startTimer() {
   thinkTotal = 0; answeredCount = 0; correctCount = 0; isThinking = false;
+  currentFlagThink = 0;
   document.getElementById('timer-bar').classList.remove('hidden');
   document.getElementById('timer-clock').textContent = '0:00';
   document.getElementById('timer-avg').textContent = '-';
-  document.getElementById('timer-score').textContent = '0/0';
+  document.getElementById('timer-score').textContent = '0/1';
   clearInterval(timerInterval);
   timerInterval = setInterval(updateTimerDisplay, 200);
 }
 
 function startThinking() { thinkStart = Date.now(); isThinking = true; }
 function pauseThinking() {
-  if (isThinking) { thinkTotal += Date.now() - thinkStart; isThinking = false; }
+  if (isThinking) { 
+    const elapsed = Date.now() - thinkStart;
+    thinkTotal += elapsed; 
+    currentFlagThink += elapsed;
+    isThinking = false; 
+  }
 }
 function resumeThinking() {
   if (!isThinking) { thinkStart = Date.now(); isThinking = true; }
 }
 function stopThinking() {
-  if (isThinking) { thinkTotal += Date.now() - thinkStart; isThinking = false; }
+  if (isThinking) { 
+    const elapsed = Date.now() - thinkStart;
+    thinkTotal += elapsed; 
+    currentFlagThink += elapsed;
+    isThinking = false; 
+  }
   updateTimerDisplay();
 }
 function countAnswer() {
-  answeredCount++; updateTimerDisplay();
+  answeredCount++; 
+  currentFlagThink = 0; // Reset per-flag timer for next flag
+  updateTimerDisplay();
 }
 
 function stopTimer() {
@@ -1638,6 +1654,8 @@ Flag: ${flagIdx + 1} of ${FLAGS.length} | Score: ${correctCount} correct, ${firs
 Current flag: ${flag.name} | Looks like: ${flag.look} | Continent: ${flag.continent}
 Fun fact: ${flag.hint} | Attempts used: ${attempts} of ${MAX_HINTS}
 ${streak >= 3 ? '🔥 ON A ' + streak + '-FLAG STREAK!' : ''}${flagIdx === 0 ? ' | 🎬 FIRST FLAG — introduce the game excitedly!' : ''}${flagIdx === FLAGS.length - 1 ? ' | 🏁 LAST FLAG!' : ''}
+
+⚠️ ACCURACY RULE: ONLY describe the flag using the "Looks like" info above. Do NOT invent colors, shapes, or symbols. If unsure, say "Look at this flag!" instead of guessing details.
 
 All countries in quiz: ${flagNames}
 
