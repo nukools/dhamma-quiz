@@ -797,7 +797,7 @@ function speak(text, callback) {
   isSpeaking = true;
   pauseListening();
   pauseThinking();
-  setAIStatus('speaking', '🗣️ ' + text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+  setAIStatus('speaking', '🗣️ ' + text);
 
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'en-US'; utter.rate = 1.0; utter.pitch = 1.1;
@@ -1504,6 +1504,7 @@ function onSilence() {
     if (nudgeCount >= 3) { doReveal(f); return; }
     askAI(`SITUATION: Dhamma has been quiet for a while (silence #${nudgeCount}).
 ${nudgeCount === 1 ? 'Gently encourage him. Describe something about the flag to get him thinking.' : 'He is still quiet. Give a stronger hint — mention the continent or first letter of the country.'}
+🚨 If you mention the flag's colors/design, use ONLY: "${f.look}". Do NOT invent colors.
 Remember: don't reveal "${f.name}"! Just encourage and hint.`).then(result => {
       const msg = result?.response || "Hey Dhamma, this flag is " + f.look + ". Give it a try!";
       trackWord(result);
@@ -1579,6 +1580,7 @@ ${correctCount > 0 && flagIdx > 0 ? 'Last flag result: ' + (conversationHistory.
 IMPORTANT: Ask about this flag in a CREATIVE, UNIQUE way. 1-2 sentences max.
 DO NOT say the country name "${f.name}"!
 DO NOT just say "What country is this?" — be imaginative!
+🚨 If you mention colors/design, use ONLY these words: "${f.look}". Do NOT guess or invent colors.
 
 Ideas (pick ONE approach, vary each time):
 - Comment on the flag's colors/design, then ask
@@ -1705,11 +1707,15 @@ Vocabulary to teach: colors (red, blue, white, yellow, green), shapes (star, cir
 
 ═══ CURRENT GAME STATE ═══
 Flag: ${flagIdx + 1} of ${activeFlags.length} | Score: ${correctCount} correct, ${firstTryCorrect} first-try | Streak: ${streak}
-Current flag: ${flag.name} | Looks like: ${flag.look} | Continent: ${flag.continent}
+Current flag: ${flag.name} | FLAG COLORS/DESIGN: ${flag.look} | Continent: ${flag.continent}
 Fun fact: ${flag.hint} | Attempts used: ${attempts} of ${MAX_HINTS}
 ${streak >= 3 ? '🔥 ON A ' + streak + '-FLAG STREAK!' : ''}${flagIdx === 0 ? ' | 🎬 FIRST FLAG — introduce the game excitedly!' : ''}${flagIdx === activeFlags.length - 1 ? ' | 🏁 LAST FLAG!' : ''}
 
-⚠️ ACCURACY RULE: ONLY describe the flag using the "Looks like" info above. Do NOT invent colors, shapes, or symbols. If unsure, say "Look at this flag!" instead of guessing details.
+🚨🚨🚨 CRITICAL — FLAG DESCRIPTION RULE 🚨🚨🚨
+When describing the flag's colors or design, you MUST copy EXACTLY from "FLAG COLORS/DESIGN" above.
+Do NOT use your own knowledge of what the flag looks like. Your knowledge may be WRONG.
+Example: If FLAG COLORS/DESIGN says "green, white and red vertical stripes", say EXACTLY that — NOT "orange, white and green".
+If you are not sure, just say "Look at this flag!" without describing colors.
 
 All countries in quiz: ${flagNames}
 
@@ -1919,7 +1925,8 @@ This is attempt ${attempts} of ${MAX_HINTS} on the ${f.name} flag.
 ${attempts === 1 ? 'First try!' : 'He already tried ' + (attempts-1) + ' time(s) before.'}
 ${lastWrong && lastWrong !== heardText ? 'Previous wrong answer was: "' + lastWrong + '"' : ''}${preAnalysis}
 
-Judge what Dhamma said and respond as his teacher.`).then(result => {
+Judge what Dhamma said and respond as his teacher.
+🚨 If you mention the flag's colors/design, use ONLY: "${f.look}". Do NOT invent colors.`).then(result => {
       if (answered) return;
       if (!result) { aiFallback(transcripts, f); return; }
 
