@@ -785,6 +785,23 @@ function setAIStatus(state, text) {
   bar.classList.remove('hidden');
 }
 
+// === DING SOUND — signals "your turn to speak" ===
+function playDing() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880; // A5 note
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+  } catch(e) {}
+}
+
 // === SPEECH SYNTHESIS (TTS) - PAUSES MIC TO PREVENT ECHO ===
 let isSpeaking = false;
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -816,6 +833,7 @@ function speak(text, callback) {
     setTimeout(() => {
       if (aiActive && !answered) {
         listenRetries = 0;
+        playDing();
         resumeListening();
         resumeThinking();
         setAIStatus('listening', useWhisper() ? '🧠 Your turn, Dhamma!' : (isMobile ? '🎤 Tap Listen & speak!' : '🎤 Your turn, Dhamma!'));
@@ -1047,6 +1065,17 @@ async function onRecordingDone() {
   setAIStatus('speaking', '🧠 Let me think...');
   const blob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
   audioChunks = [];
+  console.log('🎤 Audio blob:', blob.size, 'bytes,', blob.type);
+
+  // Skip if audio too small (likely empty/noise)
+  if (blob.size < 1000) {
+    console.warn('🎤 Audio too small, restarting...');
+    if (aiActive && (!answered || window._repeatMode) && !isSpeaking) {
+      setAIStatus('listening', '🎤 I didn\'t catch that, try again!');
+      setTimeout(() => startWhisperListening(), 500);
+    }
+    return;
+  }
 
   try {
     const transcript = await transcribeWithWhisper(blob);
@@ -1063,9 +1092,9 @@ async function onRecordingDone() {
     }
   } catch(e) {
     console.error('Whisper API error:', e);
-    setAIStatus('wrong', '⚠️ Whisper error — retrying...');
+    setAIStatus('wrong', '⚠️ Whisper: ' + (e.message || 'error').substring(0, 60));
     if (aiActive && (!answered || window._repeatMode)) {
-      setTimeout(() => startWhisperListening(), 1000);
+      setTimeout(() => startWhisperListening(), 1500);
     }
   }
 }
@@ -1085,7 +1114,12 @@ async function transcribeWithWhisper(audioBlob) {
     body: formData
   });
 
-  if (!res.ok) throw new Error('Whisper API ' + res.status);
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const errMsg = errData?.error?.message || ('HTTP ' + res.status);
+    console.error('🚨 Whisper API error:', errMsg);
+    throw new Error(errMsg);
+  }
   const data = await res.json();
   return data.text || '';
 }
