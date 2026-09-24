@@ -1,42 +1,22 @@
-# ✈️ Airline photos — วิธีใส่รูปเครื่องบิน
+# ✈️ Airline photos
 
-เกมทายสายการบินจะหารูปในโฟลเดอร์นี้ **อัตโนมัติ** ตามรหัส IATA ของสายการบิน (ตัวพิมพ์เล็ก)
+เกมทายสายการบิน **มีรูปถ่ายเครื่องบินจริงครบทั้ง 30 สายการบินแล้ว** (จาก Wikimedia Commons, ใช้ได้ตาม CC-BY / CC-BY-SA / Public domain —
+เครดิตช่างภาพแสดงอยู่ใต้ปุ่ม "📷 Airplane photo credits" บนหน้าแรก) โหลดตรงจาก Wikimedia เหมือนที่เกมธงโหลดจาก flagcdn
 
-```
-airlines/
-  tg.jpg      ← Thai Airways   (รูปเครื่องบินเต็มลำ)
-  fd.jpg      ← AirAsia
-  dd.jpg      ← Nok Air
-  ...
-```
+ตำแหน่งซูมหางของทุกรูป (`tail: {x, y, z}` ใน `AIRLINES`) ผ่านการตรวจสายตาทีละรูปแล้ว
 
-- ถ้า **ไม่มีรูป** → เกมจะวาดเครื่องบินจำลอง (สีหางตามสายการบิน) ให้แทน เล่นได้เลยแต่ไม่สวยเท่ารูปจริง
-- รองรับ `.jpg` และ `.png`
-- ขนาดแนะนำ: กว้าง 1200–1600 px, สัดส่วน 3:2 (แนวนอน)
-
-## 📷 รูปแบบไหนดีที่สุด
-- ถ่าย/เลือกรูป **ด้านข้างเครื่องบิน หัวชี้ซ้าย หางอยู่ขวา** (มุมมาตรฐานของ planespotter)
-- หางอยู่ประมาณ **ขวาบน** ของรูป → ค่า zoom เริ่มต้นจะจับหางพอดี
-- ตอนถาม เกมจะ **ซูมเข้าไปที่หาง** (เห็นแค่โลโก้/สี) → ตอบถูกแล้วค่อย **ซูมออกเห็นทั้งลำ**
-
-## 🎯 ถ้าหางไม่อยู่ตรงกลางจอตอนซูม
-แก้ที่ `index.html` ใน `AIRLINES` เพิ่ม `tail` ให้สายการบินนั้น:
+## อยากใช้รูปของตัวเองแทน?
+วางไฟล์ `airlines/<รหัส>.jpg` (เช่น `airlines/tg.jpg`) — เกมจะใช้รูปนี้ก่อนรูปจาก Wikimedia โดยอัตโนมัติ
+แล้วปรับ `tail` ของสายการบินนั้นใน `index.html`:
 
 ```js
-{ code: "tg", name: "Thai Airways", ..., tail: { x: 85, y: 30, z: 3 } },
-//   x = ตำแหน่งแนวนอนของหาง (0 = ซ้ายสุด, 100 = ขวาสุด)
-//   y = ตำแหน่งแนวตั้ง   (0 = บนสุด,  100 = ล่างสุด)
-//   z = ระดับซูม (2.5–3.5 กำลังดี)
+tail: { x: 80, y: 40, z: 2.6 }
+//  x, y = ตำแหน่งกลางหางในรูป (0–100 %)  z = ระดับซูม (2.2–2.8)
+//  เกมจะเลื่อนให้จุด (x, y) มาอยู่กลางจอตอนถาม แล้วซูมออกเห็นทั้งลำเมื่อตอบถูก
 ```
-ถ้ารูปเครื่องบินหัวชี้ **ขวา** (หางอยู่ซ้าย) ใส่ `tail: { x: 15, y: 30, z: 3 }`
+ถ้าอยากซูมจุดอื่น เช่น จมูก Nok Air ใส่ `zoomLabel: "LOOK AT THE NOSE 🐦"` ได้
 
-ถ้าอยากซูมที่จุดอื่น (เช่น จมูก Nok Air) ใส่ `zoomLabel: "LOOK AT THE NOSE"` เพิ่มได้
-
-## 🌐 หารูปฟรีได้ที่ไหน
-- **Wikimedia Commons** (commons.wikimedia.org) — ค้น "Thai Airways Boeing 777" เลือกรูปที่เป็น CC-BY / CC-BY-SA / Public domain
-- รูปที่ถ่ายเองที่สนามบิน 📸
-
-## รหัสสายการบินทั้ง 30
+## รหัสสายการบิน
 tg Thai Airways · fd AirAsia · dd Nok Air · pg Bangkok Airways · sl Thai Lion Air · vz Thai Vietjet ·
 sq Singapore Airlines · cx Cathay Pacific · jl Japan Airlines · nh ANA · ke Korean Air · br EVA Air ·
 ci China Airlines · mh Malaysia Airlines · ga Garuda Indonesia · vn Vietnam Airlines · pr Philippine Airlines ·
