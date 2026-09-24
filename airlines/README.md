@@ -22,7 +22,7 @@ sq Singapore Airlines · cx Cathay Pacific · jl Japan Airlines · nh ANA · ke 
 ci China Airlines · mh Malaysia Airlines · ga Garuda Indonesia · vn Vietnam Airlines · pr Philippine Airlines ·
 ai Air India · ek Emirates · qr Qatar Airways · ey Etihad · tk Turkish Airlines ·
 lh Lufthansa · ba British Airways · af Air France · kl KLM · lx Swiss · qf Qantas ·
-ca Air China · kb Druk Air · qv Lao Airlines · ac Air Canada · ms EgyptAir · ay Finnair · ib Iberia · az ITA Airways · sv Saudia · ar Aerolíneas Argentinas · su Aeroflot · nz Air New Zealand
+ca Air China · kb Druk Air · qv Lao Airlines · ac Air Canada · ms EgyptAir · ay Finnair · ib Iberia · az ITA Airways · sv Saudia · dl Delta Air Lines · su Aeroflot · nz Air New Zealand
 
 ## ซ่อนข้อความเล็กบนลำตัวเครื่อง (`hide`)
 
