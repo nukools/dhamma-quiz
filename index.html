@@ -278,7 +278,7 @@
   .plane-airline-badge {
     position: absolute; bottom: 8px; right: 8px; padding: 4px 10px; border-radius: 20px;
     background: rgba(0,0,0,0.45); color: #fff; font-size: 12px; font-weight: 600; pointer-events: none;
-    opacity: 0; transition: opacity 0.5s 0.6s;
+    opacity: 0; visibility: hidden; transition: none;
   }
   /* blur patches over registration / small titles on the fuselage so nothing gives the answer away before the reveal */
   .plane-mask {
@@ -287,7 +287,7 @@
     transition: opacity 0.4s;
   }
   .plane-viewport.revealed .plane-mask { opacity: 0; }
-  .plane-viewport.revealed .plane-airline-badge { opacity: 1; }
+  .plane-viewport.revealed .plane-airline-badge { opacity: 1; visibility: visible; transition: opacity 0.5s 0.6s; }
   .plane-viewport.revealed .plane-zoom-hint { opacity: 0; }
 </style>
 </head>
@@ -731,6 +731,7 @@ if (synth.onvoiceschanged !== undefined) {
   synth.onvoiceschanged = () => { synth.getVoices(); };
 }
 let answered = false;
+let flagResults = [];   // per-item result ('correct' | 'skip') so Back + Got it never double-counts
 let aiActive = false;
 let attempts = 0;
 const MAX_HINTS = 3;
@@ -966,7 +967,8 @@ function updateTimerDisplay() {
   }
   
   // SCORE = correct / total flags seen so far
-  document.getElementById('timer-score').textContent = correctCount + '/' + (flagIdx + 1);
+  const seen = Math.max(flagIdx + 1, flagResults.filter(r => r === 'correct' || r === 'skip').length);   // stays correct after Back
+  document.getElementById('timer-score').textContent = correctCount + '/' + seen;
 }
 
 function startTimer() {
@@ -1011,7 +1013,7 @@ function stopThinking() {
 
 // countAnswer: flag resolved (correct or revealed) — prep for next flag
 function countAnswer() {
-  answeredCount++; 
+  if (!flagResults[flagIdx + 1000]) { answeredCount++; flagResults[flagIdx + 1000] = true; }   // count each item once for the average
   currentFlagThink = 0; // Reset per-flag timer for next flag
   updateTimerDisplay();
 }
@@ -1705,7 +1707,7 @@ function renderFlag() {
   if (isAirline) {
     loadAirlineImage(f);
     setPlaneZoom(true, false);          // start zoomed in on the tail
-    document.getElementById('plane-airline-badge').textContent = f.name;
+    document.getElementById('plane-airline-badge').textContent = '';   // name is only written at reveal time
     document.getElementById('plane-zoom-hint').textContent = '🔍 ' + (f.zoomLabel || 'LOOK AT THE TAIL');
   } else {
     document.getElementById('flag-img').src = 'https://flagcdn.com/w1280/' + f.code + '.png';
@@ -1729,7 +1731,10 @@ function updateButtons() {
 }
 
 function revealAnswer(name) {
-  if (game === 'airlines') setPlaneZoom(false, true);   // zoom out to the full airplane
+  if (game === 'airlines') {
+    setPlaneZoom(false, true);   // zoom out to the full airplane
+    document.getElementById('plane-airline-badge').textContent = name;
+  }
   document.getElementById('flags-question').classList.add('hidden');
   const a = document.getElementById('flags-answer');
   a.classList.remove('hidden'); a.style.animation = 'none'; a.offsetHeight; a.style.animation = 'popIn 0.5s ease-out';
@@ -1749,7 +1754,7 @@ function showNextButton() {
 function startFlags() {
   // Set active flag list based on mode
   activeFlags = (mode === 'ai') ? shuffle(G().data) : G().data;
-  flagIdx = 0; correctCount = 0; firstTryCorrect = 0; answered = false; streak = 0;
+  flagIdx = 0; correctCount = 0; firstTryCorrect = 0; answered = false; streak = 0; flagResults = [];
   showScreen('flags');
   renderFlag();
 
@@ -1790,12 +1795,21 @@ function startFlags() {
   }
 }
 
+// scoreCorrect / scoreSkip: record the result for the current item exactly once (revisiting with Back won't add points again)
+function scoreCorrect() {
+  if (flagResults[flagIdx] === 'correct') return false;
+  flagResults[flagIdx] = 'correct'; correctCount++; return true;
+}
+function scoreSkip() {
+  if (flagResults[flagIdx] === 'correct') correctCount--;
+  flagResults[flagIdx] = 'skip';
+}
+
 // === MANUAL MODE ===
 function flagsReveal() {
   stopThinking();
   const name = activeFlags[flagIdx].name;
-  correctCount++;
-  firstTryCorrect++;
+  if (scoreCorrect()) firstTryCorrect++;
   streak++;
   revealAnswer(name);
   fireConfetti();
@@ -1815,6 +1829,7 @@ function flagsReveal() {
 function flagsSkip() {
   stopThinking();
   const name = activeFlags[flagIdx].name;
+  scoreSkip();
   streak = 0;
   revealAnswer(name);
   updateTimerDisplay();
@@ -2417,7 +2432,7 @@ Judge what Dhamma said and respond as his teacher.
         hideHeard();
         answered = true;
         stopThinking();
-        correctCount++;
+        scoreCorrect();
         if (attempts <= 1) { firstTryCorrect++; streak++; } else { streak = 0; }
         attempts--;
         updateTimerDisplay();
@@ -2452,7 +2467,7 @@ Judge what Dhamma said and respond as his teacher.
   // === NON-WHISPER: Local matching + templates ===
   const isCorrect = checkAnswer(transcripts, f);
   if (isCorrect) {
-    hideHeard(); answered = true; stopThinking(); correctCount++;
+    hideHeard(); answered = true; stopThinking(); scoreCorrect();
     if (attempts === 0) { firstTryCorrect++; streak++; } else { streak = 0; }
     updateTimerDisplay(); revealAnswer(f.name); fireConfetti();
     setAIStatus('correct', '✅ ' + f.name);
@@ -2471,7 +2486,7 @@ Judge what Dhamma said and respond as his teacher.
 function aiFallback(transcripts, f) {
   const isCorrect = checkAnswer(transcripts, f);
   if (isCorrect) {
-    hideHeard(); answered = true; stopThinking(); correctCount++;
+    hideHeard(); answered = true; stopThinking(); scoreCorrect();
     if (attempts <= 1) { firstTryCorrect++; streak++; } else { streak = 0; }
     attempts--;
     updateTimerDisplay(); revealAnswer(f.name); fireConfetti();
@@ -2695,7 +2710,7 @@ function parentOverride() {
   stopSpeaking();
   stopThinking();
   clearTimeout(silenceTimer);
-  correctCount++;
+  scoreCorrect();
   if (attempts === 0) { firstTryCorrect++; streak++; } else { streak = 0; }
   updateTimerDisplay();
   const f = activeFlags[flagIdx];
