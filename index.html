@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Dhamma's Talent Show - AI Flag Quiz!</title>
+<title>Dhamma's Talent Show - Flags & Airlines Quiz!</title>
 
 <!-- PWA — display:browser so iOS opens in Safari (not broken standalone WebView) -->
 <link rel="manifest" href="/manifest.json">
@@ -236,6 +236,52 @@
   }
   .mode-btn.active { background: rgba(78,205,196,0.2); border-color: #4ECDC4; color: #4ECDC4; }
   .mode-btn:hover { background: rgba(78,205,196,0.1); }
+
+  /* === GAME SELECTOR (home) === */
+  .game-selector { display: flex; gap: 16px; margin: 16px 0 6px; flex-wrap: wrap; justify-content: center; }
+  .game-card {
+    font-family: 'Prompt', sans-serif; cursor: pointer; width: clamp(150px, 20vw, 220px);
+    padding: 16px 12px; border-radius: 22px; border: 2px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05); color: #a8b5d6; transition: all 0.25s ease;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .game-card .game-icon { font-size: clamp(38px, 5vw, 56px); line-height: 1; }
+  .game-card .game-name { font-family: 'Fredoka One', 'Prompt', sans-serif; font-size: clamp(20px, 2.4vw, 28px); color: #fff; }
+  .game-card .game-desc { font-size: clamp(12px, 1.3vw, 14px); opacity: 0.8; }
+  .game-card:hover { transform: translateY(-3px); background: rgba(255,255,255,0.1); }
+  .game-card.active { border-color: #FFE66D; background: rgba(255,230,109,0.12); box-shadow: 0 0 24px rgba(255,230,109,0.25); }
+  .game-card.active .game-name { color: #FFE66D; }
+  .bg-airlines { background: linear-gradient(160deg, #061a2e 0%, #0b3d6b 50%, #1e88e5 100%); }
+  .label-airlines { color: #7EC8E3; }
+  .progress-airlines { background: linear-gradient(90deg, #7EC8E3, #1e88e5); }
+
+  /* === AIRLINE PLANE VIEWPORT (tail zoom → full plane) === */
+  .plane-frame {
+    background: #eaeaea; border-radius: 16px; padding: 14px; display: inline-block;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .plane-viewport {
+    width: clamp(280px, 48vw, 560px); aspect-ratio: 3 / 2; max-height: 42vh;
+    border-radius: 8px; overflow: hidden; position: relative; border: 2px solid #ccc;
+    background: linear-gradient(180deg, #cfe8ff 0%, #eef6ff 100%);
+  }
+  .plane-inner {
+    position: absolute; inset: 0; transition: transform 1.1s cubic-bezier(.22,.9,.3,1);
+    will-change: transform;
+  }
+  .plane-inner img, .plane-inner svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .plane-zoom-hint {
+    position: absolute; top: 8px; left: 8px; padding: 4px 10px; border-radius: 20px;
+    background: rgba(0,0,0,0.45); color: #fff; font-size: 12px; font-weight: 600; letter-spacing: 1px;
+    pointer-events: none;
+  }
+  .plane-airline-badge {
+    position: absolute; bottom: 8px; right: 8px; padding: 4px 10px; border-radius: 20px;
+    background: rgba(0,0,0,0.45); color: #fff; font-size: 12px; font-weight: 600; pointer-events: none;
+    opacity: 0; transition: opacity 0.5s 0.6s;
+  }
+  .plane-viewport.revealed .plane-airline-badge { opacity: 1; }
+  .plane-viewport.revealed .plane-zoom-hint { opacity: 0; }
 </style>
 </head>
 <body class="bg-start">
@@ -250,7 +296,7 @@
   </div>
   <div class="timer-divider"></div>
   <div>
-    <div class="timer-avg-label">⚡ Avg / Flag</div>
+    <div class="timer-avg-label" id="timer-avg-label">⚡ Avg / Flag</div>
     <div id="timer-avg" class="timer-avg">-</div>
   </div>
   <div class="timer-divider"></div>
@@ -270,11 +316,24 @@
       <div class="profile-badge">🏁</div>
     </div>
     <h1 class="main-title">Dhamma's Talent Show</h1>
-    <p class="main-subtitle">🌍 Guess the Flag! 🌍</p>
+    <p class="main-subtitle" id="home-subtitle">🌍 Guess the Flag! 🌍</p>
     <p class="subtitle">Learn English with AI Teacher 🧠✨</p>
     <div style="margin:12px auto;display:flex;align-items:center;justify-content:center;gap:12px">
       <img id="isc-logo" src="" alt="ISC" style="height:80px">
       <span style="color:#ccd6f6;font-size:clamp(14px,1.8vw,18px);font-weight:600">Presented at<br>International School of Chonburi</span>
+    </div>
+    <!-- GAME SELECTOR -->
+    <div class="game-selector">
+      <button class="game-card" id="game-flags" onclick="setGame('flags')">
+        <span class="game-icon">🌍</span>
+        <span class="game-name">Flags</span>
+        <span class="game-desc">Guess the country</span>
+      </button>
+      <button class="game-card" id="game-airlines" onclick="setGame('airlines')">
+        <span class="game-icon">✈️</span>
+        <span class="game-name">Airlines</span>
+        <span class="game-desc">Guess the airline from its tail</span>
+      </button>
     </div>
     <div class="mode-selector">
       <button class="mode-btn" id="mode-ai" onclick="setMode('ai')">🧠 AI Teacher (30 flags random)</button>
@@ -302,12 +361,19 @@
 <!-- FLAGS -->
 <div id="screen-flags" class="screen hidden">
   <div style="display:flex;flex-direction:column;align-items:center;width:100%;max-width:1100px;animation:scaleIn 0.5s ease-out;padding-top:56px">
-    <div class="section-badge"><span class="icon">🌍</span><span class="label label-flags">Flags</span></div>
+    <div class="section-badge"><span class="icon" id="section-icon">🌍</span><span class="label label-flags" id="section-label">Flags</span></div>
     <div class="progress-wrap"><div id="flags-progress" class="progress-bar progress-flags" style="width:5%"></div></div>
     <div id="flags-counter" class="counter">1 / 50</div>
     <div id="flags-display" class="flag-wrap">
-      <div class="flag-frame">
+      <div class="flag-frame" id="flag-frame">
         <img id="flag-img" class="flag-img" src="" alt="flag">
+      </div>
+      <div class="plane-frame hidden" id="plane-frame">
+        <div class="plane-viewport" id="plane-viewport">
+          <div class="plane-inner" id="plane-inner"></div>
+          <div class="plane-zoom-hint" id="plane-zoom-hint">🔍 LOOK AT THE TAIL</div>
+          <div class="plane-airline-badge" id="plane-airline-badge"></div>
+        </div>
       </div>
     </div>
     <div class="answer-area">
@@ -353,9 +419,9 @@
     <h1 class="end-title">Amazing Job, Dhamma!</h1>
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-icon">🌍</div>
+        <div class="stat-icon" id="stat-flags-icon">🌍</div>
         <div id="stat-flags" class="stat-value">30</div>
-        <div class="stat-label">Flags</div>
+        <div class="stat-label" id="stat-flags-label">Flags</div>
       </div>
       <div class="stat-card">
         <div class="stat-icon">✅</div>
@@ -370,7 +436,7 @@
       <div class="stat-card">
         <div class="stat-icon">⚡</div>
         <div id="stat-avg" class="stat-value">0s</div>
-        <div class="stat-label">Avg / Flag</div>
+        <div class="stat-label" id="stat-avg-label">Avg / Flag</div>
       </div>
     </div>
     <p class="end-sub">Thank you for watching! 🌍🎉</p>
@@ -434,6 +500,165 @@ const FLAGS = [
   { code: "br", name: "Brazil", aliases: ["brazil","brazilian","brasil","bra zil","bra sin","bra sil","blazil","brazin","blasil"], continent: "South America", hint: "The biggest country in South America, famous for soccer", look: "green with a yellow diamond and blue globe" },
 ];
 
+// === AIRLINES — GUESS THE AIRLINE FROM ITS TAIL ===
+// code   = IATA code (lowercase) → photo file: airlines/<code>.jpg  (optional close-up: airlines/<code>-tail.jpg)
+// look   = tail / livery description the AI is ALLOWED to say (keep accurate!)
+// colors = [tail primary, tail accent] for the placeholder airplane when no photo is present
+// tail   = optional zoom focus for the question view {x:%, y:%, z:zoom} — default assumes nose LEFT, tail RIGHT
+// region = country the airline is from (used for hints)
+const AIRLINES = [
+  // THAILAND
+  { code: "tg", name: "Thai Airways", region: "Thailand", aliases: ["thai airways","thai airway","thai air","thai","tie airways","tai airways","thai air way","tie air","thai airline","thai airlines"], reject: ["lion","vietjet","viet jet","wiet jet","biet jet","smile","asia"], hint: "Thailand's own airline — purple and gold like a beautiful orchid", look: "purple and gold, with a magenta and gold swirl on the tail", colors: ["#5b2d8e","#f4c542"] },
+  { code: "fd", name: "AirAsia", region: "Thailand and Malaysia", aliases: ["air asia","airasia","air a sia","air ay sia","air asian","air esia","ae asia","air asia airline","thai air asia"], hint: "A bright red airplane — its slogan is 'Now everyone can fly!'", look: "bright red all over with white letters", colors: ["#e3202b","#ffffff"] },
+  { code: "dd", name: "Nok Air", region: "Thailand", aliases: ["nok air","nokair","nok","knock air","nock air","nok ear","nok airline","bird air","nok aire"], hint: "Nok means bird in Thai! Its nose is painted like a bird's beak", look: "bright yellow with a bird's beak painted on the nose", colors: ["#ffd400","#ff8c00"] },
+  { code: "pg", name: "Bangkok Airways", region: "Thailand", aliases: ["bangkok airways","bangkok air","bangkok","bang kok air","bangkok airway","bangkok airline","bangkok air way"], hint: "Asia's boutique airline — it flies to Samui island!", look: "very colorful with bright pink, orange, blue and green patterns", colors: ["#f26522","#00a3e0"] },
+  { code: "sl", name: "Thai Lion Air", region: "Thailand", aliases: ["lion air","thai lion air","thai lion","lion","lai on air","lion ear","lai-on air","lion airline","thai lion airline"], hint: "There's a big cat on the tail — the king of the jungle!", look: "white with a red and orange lion on the tail", colors: ["#e30613","#f7941d"] },
+  { code: "vz", name: "Thai Vietjet", region: "Vietnam", aliases: ["vietjet","viet jet","thai vietjet","wiet jet","vietjet air","biet jet","wee jet","vet jet","viet jet air"], hint: "Red and yellow — it comes from Vietnam", look: "red and yellow", colors: ["#e2231a","#ffcc00"] },
+  // ASIA
+  { code: "sq", name: "Singapore Airlines", region: "Singapore", aliases: ["singapore airlines","singapore airline","singapore air","singapore","singa po","singapo airline","sing a pore","singapor","singabo air"], hint: "From a tiny island country south of Malaysia — with a golden bird", look: "dark navy blue tail with a golden bird", colors: ["#0b2a5b","#f1c40f"] },
+  { code: "cx", name: "Cathay Pacific", region: "Hong Kong", aliases: ["cathay pacific","cathay","ca tay","cathay pa si fic","katay pacific","ka tay","pacific","cattay pacific","cathay passific"], hint: "From Hong Kong — a green tail with a brush stroke", look: "green tail with a white brush stroke", colors: ["#006564","#ffffff"] },
+  { code: "jl", name: "Japan Airlines", region: "Japan", aliases: ["japan airlines","japan airline","japan air","japan","jal","ja pan air","japan air line","jay ay el","yapan airlines"], hint: "A red crane bird on the tail — from the land of sushi", look: "white with a red crane bird inside a red circle on the tail", colors: ["#c8102e","#ffffff"] },
+  { code: "nh", name: "ANA", region: "Japan", aliases: ["ana","all nippon","all nippon airways","a n a","ah na","anna","all nippon air","a-n-a","ay en ay"], hint: "Also from Japan — blue and white, and its name is only three letters!", look: "white with a dark blue tail and a blue stripe", colors: ["#003f87","#ffffff"] },
+  { code: "ke", name: "Korean Air", region: "South Korea", aliases: ["korean air","korea air","korean","korea","ko rean air","korean airline","korea airline","ko re an air","kolean air"], hint: "A light blue airplane from the land of K-pop", look: "light sky blue with a red and blue circle on the tail", colors: ["#6ab0de","#c8102e"] },
+  { code: "br", name: "EVA Air", region: "Taiwan", aliases: ["eva air","eva","eva airways","ee va air","ava air","eba air","e va","eva airline","eva ear"], hint: "Green and orange from Taiwan — sometimes it has Hello Kitty painted on it!", look: "white with a green tail and an orange stripe", colors: ["#00734a","#f47920"] },
+  { code: "ci", name: "China Airlines", region: "Taiwan", aliases: ["china airlines","china airline","china air","chai na air","china air line","chaina airlines","china air lines"], hint: "A pink flower on the tail — a plum blossom from Taiwan", look: "white with a pink plum blossom flower on the tail", colors: ["#e6007e","#ffffff"] },
+  { code: "mh", name: "Malaysia Airlines", region: "Malaysia", aliases: ["malaysia airlines","malaysia airline","malaysia air","malaysia","ma lay sia air","malaysian","malaysian airlines","malasia air"], hint: "A flying kite on the tail — from the country with the Twin Towers", look: "white with a red and blue kite on the tail", colors: ["#c8102e","#0033a0"] },
+  { code: "ga", name: "Garuda Indonesia", region: "Indonesia", aliases: ["garuda","garuda indonesia","ga ru da","garuda air","indonesia airline","garuda indonesia airline","galuda","garuda airline"], hint: "Named after a giant magical bird — from Indonesia", look: "white with a blue tail and a blue bird wing", colors: ["#0d3b8c","#3fbfbf"] },
+  { code: "vn", name: "Vietnam Airlines", region: "Vietnam", aliases: ["vietnam airlines","vietnam airline","vietnam air","vietnam","viet nam air","wiet nam air","vietnam air line","wietnam airlines"], hint: "A golden lotus flower on the tail — from Vietnam", look: "dark blue with a golden lotus flower on the tail", colors: ["#0f2d6b","#f2b826"] },
+  { code: "pr", name: "Philippine Airlines", region: "Philippines", aliases: ["philippine airlines","philippine airline","philippine","philippines air","philippine air","filipin air","philippines airline","pal","philippines"], hint: "A sun on the tail — from the country with thousands of islands", look: "white with a blue tail, a yellow sun and a red stripe", colors: ["#0038a8","#fcd116"] },
+  { code: "tr", name: "Scoot", region: "Singapore", aliases: ["scoot","scoot air","s coot","skoot","scoot airline","scooter","scoot airways","sa coot"], hint: "A yellow tail from Singapore — a fun, cheap airline", look: "white with a yellow tail", colors: ["#ffd200","#ffffff"] },
+  { code: "jq", name: "Jetstar", region: "Australia", aliases: ["jetstar","jet star","jet sta","jetstar air","jetstar airways","jet star air","jed star","jetsta"], hint: "An orange star on the tail — from Australia", look: "silver-grey with an orange star on the tail", colors: ["#ff5000","#8c8c8c"] },
+  { code: "ai", name: "Air India", region: "India", aliases: ["air india","india air","air in dia","air india airline","indian airline","air indea","air india airlines","ae india"], hint: "From the country with the Taj Mahal — red and gold", look: "red and gold with a purple stripe", colors: ["#c8102e","#f2b826"] },
+  // MIDDLE EAST
+  { code: "ek", name: "Emirates", region: "United Arab Emirates", aliases: ["emirates","emirate","emirat","e mi rates","emirates airline","emirit","emirette","emirates air","emi rates"], hint: "From Dubai! It has the biggest airplanes with two floors", look: "white with the red, green and black colors of the UAE flag on the tail", colors: ["#d71a21","#00732f"] },
+  { code: "qr", name: "Qatar Airways", region: "Qatar", aliases: ["qatar airways","qatar airway","qatar air","qatar","ka tar","katar","cutter airways","gutter airways","ka tar airway","qatar airline"], hint: "Dark red tail with an oryx — a desert animal with long horns", look: "grey with a dark red tail and an oryx animal on it", colors: ["#5c0a2f","#8a8d8f"] },
+  { code: "ey", name: "Etihad", region: "United Arab Emirates", aliases: ["etihad","etihad airways","e ti had","ettihad","eti had","etihad air","etihat","etihad airline"], hint: "From Abu Dhabi — golden desert colors", look: "gold and sandy colored pattern on the tail", colors: ["#bd8b13","#e8d5a8"] },
+  { code: "tk", name: "Turkish Airlines", region: "Turkey", aliases: ["turkish airlines","turkish airline","turkish","turkish air","tur kish","turkey airline","turkey air","turkey airlines","tur kish airlines"], hint: "From Turkey — red tail with a white bird", look: "white with a red tail and a white bird", colors: ["#c70a0c","#ffffff"] },
+  // EUROPE
+  { code: "lh", name: "Lufthansa", region: "Germany", aliases: ["lufthansa","luft han sa","lufthanza","luf tan sa","loof tansa","luftansa","luf han sa","lufthansa airline"], hint: "From Germany — a crane bird inside a circle", look: "white with a dark blue tail and a white crane bird in a circle", colors: ["#05164d","#ffffff"] },
+  { code: "ba", name: "British Airways", region: "United Kingdom", aliases: ["british airways","british airway","british","british air","bri tish","britis airways","british airline","british air ways"], hint: "From England — the Union Jack flag is on the tail", look: "white with a red, white and blue ribbon on the tail", colors: ["#075aaa","#eb2226"] },
+  { code: "af", name: "Air France", region: "France", aliases: ["air france","france air","air fran","air frans","air flance","air france airline","ae france","air frence"], hint: "From the country with the Eiffel Tower", look: "white with a red and blue stripe on the tail", colors: ["#002157","#ff0000"] },
+  { code: "kl", name: "KLM", region: "Netherlands", aliases: ["klm","k l m","kay el em","ka la ma","klm royal dutch","dutch airline","k-l-m","kay-el-em"], hint: "A light blue airplane from Holland with a crown!", look: "light blue all over with a white crown", colors: ["#00a1de","#ffffff"] },
+  { code: "lx", name: "Swiss", region: "Switzerland", aliases: ["swiss","swiss air","swiss airline","swiss airlines","swiss international","swit zer land air","swis air","swiss ear"], hint: "A white cross on a red tail — from the land of chocolate", look: "white with a red tail and a white cross", colors: ["#e30613","#ffffff"] },
+  // OCEANIA
+  { code: "qf", name: "Qantas", region: "Australia", aliases: ["qantas","quantas","kan tas","kwantas","qan tas","contas","kangaroo airline","qantas airways","kantas"], hint: "A kangaroo on the tail — from Australia", look: "white with a red tail and a white kangaroo", colors: ["#e40000","#ffffff"] },
+];
+
+// === GAME REGISTRY — the same engine runs both games ===
+const GAMES = {
+  flags: {
+    icon: '🌍', label: 'Flags', title: '🌍 Guess the Flag! 🌍',
+    item: 'country', items: 'countries', thing: 'flag', things: 'flags',
+    from: 'is in', regionWord: 'continent', champion: 'flag champion',
+    bg: 'bg-flags', labelClass: 'label-flags', progressClass: 'progress-flags',
+    data: FLAGS,
+    whisperPrompt: 'A 4-year-old Thai child is naming countries. Possible words: ',
+  },
+  airlines: {
+    icon: '✈️', label: 'Airlines', title: '✈️ Guess the Airline! ✈️',
+    item: 'airline', items: 'airlines', thing: 'airplane', things: 'airplanes',
+    from: 'is from', regionWord: 'country', champion: 'airline champion',
+    bg: 'bg-airlines', labelClass: 'label-airlines', progressClass: 'progress-airlines',
+    data: AIRLINES,
+    whisperPrompt: 'A 4-year-old Thai child is naming airlines by looking at airplane tails. Possible words: ',
+  }
+};
+let game = localStorage.getItem('dhamma_game') || 'flags';
+function G() { return GAMES[game]; }
+function regionOf(f) { return f.region || f.continent || ''; }
+function aOrAn(word) { return (/^[aeiou]/i.test(word) ? 'an ' : 'a ') + word; }
+function lookWord() { return game === 'airlines' ? 'airplane tail' : 'flag'; }
+
+function setGame(g) {
+  game = g;
+  localStorage.setItem('dhamma_game', g);
+  const cfg = G();
+  document.getElementById('game-flags').classList.toggle('active', g === 'flags');
+  document.getElementById('game-airlines').classList.toggle('active', g === 'airlines');
+  document.getElementById('home-subtitle').textContent = cfg.title;
+  document.getElementById('mode-ai').textContent = '🧠 AI Teacher (' + cfg.data.length + ' ' + cfg.things + ' random)';
+  document.getElementById('mode-manual').textContent = '🏁 Speed Show (' + cfg.data.length + ' ' + cfg.things + ')';
+  // Quiz screen labels
+  document.getElementById('section-icon').textContent = cfg.icon;
+  const lbl = document.getElementById('section-label');
+  lbl.textContent = cfg.label; lbl.className = 'label ' + cfg.labelClass;
+  document.getElementById('flags-progress').className = 'progress-bar ' + cfg.progressClass;
+  document.getElementById('timer-avg-label').textContent = '⚡ Avg / ' + (g === 'flags' ? 'Flag' : 'Airline');
+  // End screen labels
+  document.getElementById('stat-flags-icon').textContent = cfg.icon;
+  document.getElementById('stat-flags-label').textContent = cfg.label;
+  document.getElementById('stat-avg-label').textContent = 'Avg / ' + (g === 'flags' ? 'Flag' : 'Airline');
+  document.title = "Dhamma's Talent Show - AI " + (g === 'flags' ? 'Flag' : 'Airline') + ' Quiz!';
+}
+
+// === PLACEHOLDER AIRPLANE (used when airlines/<code>.jpg is missing) ===
+// A generic side-view airliner, nose on the LEFT, tail on the RIGHT, tail painted in the airline colors.
+function planePlaceholderSVG(a) {
+  const [c1, c2] = a.colors || ['#888', '#ccc'];
+  return `<svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9dcff"/><stop offset="1" stop-color="#eef7ff"/></linearGradient>
+      <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.7" stop-color="#e9edf2"/><stop offset="1" stop-color="#c9d1da"/></linearGradient>
+    </defs>
+    <rect width="600" height="400" fill="url(#sky)"/>
+    <ellipse cx="160" cy="70" rx="60" ry="18" fill="#fff" opacity="0.8"/><ellipse cx="200" cy="62" rx="40" ry="14" fill="#fff" opacity="0.8"/>
+    <ellipse cx="300" cy="330" rx="230" ry="16" fill="#000" opacity="0.08"/>
+    <!-- vertical tail fin -->
+    <polygon points="412,208 462,96 528,96 506,208" fill="${c1}"/>
+    <polygon points="440,160 462,96 528,96 505,160" fill="${c2}" opacity="0.95"/>
+    <!-- horizontal stabilizer -->
+    <polygon points="452,214 528,190 545,200 480,225" fill="#c9d1da"/>
+    <!-- fuselage -->
+    <path d="M 62 226 C 62 202 92 188 132 188 L 430 188 C 470 188 495 200 522 222 L 522 232 C 495 250 470 260 430 260 L 132 260 C 92 260 62 250 62 226 Z" fill="url(#body)"/>
+    <!-- belly stripe -->
+    <path d="M 72 240 L 470 240 C 490 240 505 236 518 230 L 522 232 C 495 250 470 260 430 260 L 132 260 C 100 260 78 252 72 240 Z" fill="${c1}" opacity="0.85"/>
+    <!-- cockpit windows -->
+    <path d="M 98 208 L 122 196 L 150 196 L 150 210 Z" fill="#2b3a4a"/>
+    <!-- passenger windows -->
+    ${Array.from({length: 22}, (_, i) => `<rect x="${162 + i * 13}" y="205" width="7" height="9" rx="2" fill="#3b5470"/>`).join('')}
+    <!-- wing -->
+    <polygon points="238,236 250,246 350,300 440,300 420,282 330,236" fill="#d7dee6"/>
+    <polygon points="238,236 250,246 350,300 440,300" fill="#c1cad4" opacity="0.6"/>
+    <!-- engine -->
+    <rect x="286" y="276" width="78" height="34" rx="16" fill="#9aa5b1"/>
+    <rect x="286" y="276" width="18" height="34" rx="9" fill="#5c6975"/>
+    <!-- nose gear / main gear -->
+    <rect x="128" y="258" width="4" height="14" fill="#555"/><circle cx="130" cy="276" r="6" fill="#222"/>
+    <rect x="330" y="300" width="4" height="12" fill="#555"/><circle cx="332" cy="316" r="7" fill="#222"/>
+    <text x="14" y="388" font-family="Prompt, sans-serif" font-size="12" fill="#5a6b7c" opacity="0.7">📷 add photo: airlines/${a.code}.jpg</text>
+  </svg>`;
+}
+
+const TAIL_DEFAULT = { x: 82, y: 36, z: 2.8 };
+let planeImgToken = 0;
+
+// Load the airline picture into the viewport: real photo (jpg → png) → placeholder airplane
+function loadAirlineImage(a) {
+  const inner = document.getElementById('plane-inner');
+  const token = ++planeImgToken;
+  const tryLoad = (srcs) => {
+    if (!srcs.length) { if (token === planeImgToken) inner.innerHTML = planePlaceholderSVG(a); return; }
+    const img = new Image();
+    img.onload = () => { if (token !== planeImgToken) return; inner.innerHTML = ''; img.alt = 'airplane'; inner.appendChild(img); };
+    img.onerror = () => tryLoad(srcs.slice(1));
+    img.src = srcs[0];
+  };
+  tryLoad(['airlines/' + a.code + '.jpg', 'airlines/' + a.code + '.png']);
+}
+
+// Question view: zoom in on the tail. Reveal: animate back out to the full airplane.
+function setPlaneZoom(zoomIn, animate) {
+  const a = activeFlags[flagIdx];
+  const inner = document.getElementById('plane-inner');
+  const vp = document.getElementById('plane-viewport');
+  const t = Object.assign({}, TAIL_DEFAULT, a.tail || {});
+  inner.style.transition = animate ? '' : 'none';
+  inner.style.transformOrigin = t.x + '% ' + t.y + '%';
+  inner.style.transform = zoomIn ? 'scale(' + t.z + ')' : 'scale(1)';
+  vp.classList.toggle('revealed', !zoomIn);
+  if (!animate) { inner.offsetHeight; inner.style.transition = ''; }
+}
+
 const CONFETTI_COLORS = ["#FF6B6B","#4ECDC4","#FFE66D","#A8E6CF","#FF8B94","#7EC8E3","#F7DC6F","#BB8FCE"];
 
 // AI Mode: 5 curated flags with clear pronunciation for the show
@@ -474,56 +699,63 @@ let streak = 0;
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function getQuestion() {
+  const g = G(); const T = g.thing, I = g.item;
   const num = flagIdx + 1;
-  const pct = Math.round(num / activeFlags.length * 100);
+  const total = activeFlags.length;
 
-  if (num === 1) return "Alright Dhamma, here we go! Our very first flag. Do you know which country this is?";
-  if (num === 2) return "Okay, flag number 2! Which country does this flag belong to?";
+  if (num === 1) return "Alright Dhamma, here we go! Our very first " + T + ". Do you know which " + I + " this is?";
+  if (num === 2) return "Okay, " + T + " number 2! Which " + I + " is this?";
 
   // Milestone excitement
-  if (num === 10) return "Wow, we're already at number 10! You're doing great Dhamma! What country is this?";
-  if (num === 20) return "Twenty flags down! Dhamma, you are on fire! Which country?";
-  if (num === 25) return "Halfway there! Can you keep going? What country is this?";
-  if (num === 40) return "Only ten more to go! You're almost a flag champion! Which country?";
-  if (num === 48) return "Almost at the finish line! Just a few more! What country is this?";
-  if (num === activeFlags.length) return "This is the very last flag! Make it count, Dhamma! Which country?";
+  if (num === 10) return "Wow, we're already at number 10! You're doing great Dhamma! What " + I + " is this?";
+  if (num === 20) return "Twenty " + g.things + " down! Dhamma, you are on fire! Which " + I + "?";
+  if (num === Math.ceil(total / 2) && total > 12) return "Halfway there! Can you keep going? What " + I + " is this?";
+  if (num === total - 2 && total > 10) return "Almost at the finish line! Just a few more! What " + I + " is this?";
+  if (num === total) return "This is the very last " + T + "! Make it count, Dhamma! Which " + I + "?";
 
   // After a streak
   if (streak >= 5) return pick([
-    "You're on a roll, Dhamma! " + streak + " in a row! What country is this one?",
-    streak + " correct in a row! Can you keep the streak going? Which country?",
+    "You're on a roll, Dhamma! " + streak + " in a row! What " + I + " is this one?",
+    streak + " correct in a row! Can you keep the streak going? Which " + I + "?",
     "Unstoppable! Let's see if you know this one too!"
   ]);
 
   if (streak >= 3) return pick([
-    "Nice streak! Keep it going! What country is this?",
-    "You're doing amazing! Next flag. Which country?",
+    "Nice streak! Keep it going! What " + I + " is this?",
+    "You're doing amazing! Next " + T + ". Which " + I + "?",
     "Three in a row! Can you get this one too?"
   ]);
 
   // Normal varied questions
-  return pick([
-    "Okay Dhamma, next flag! What country is this?",
-    "Here's a new one! Which country does this flag belong to?",
-    "Check this flag out! Do you know it?",
-    "What about this one, Dhamma? Which country?",
-    "Let's see, do you recognize this flag?",
-    "Another flag for you! What country?",
-    "Ooh, interesting flag! Do you know where it's from?",
-    "Take a good look, Dhamma! Which country is this?",
-    "Here comes the next one! What country?",
-    "Can you name this flag, Dhamma?"
-  ]);
+  const base = [
+    "Okay Dhamma, next " + T + "! What " + I + " is this?",
+    "Here's a new one! Which " + I + " is this?",
+    "Check this " + T + " out! Do you know it?",
+    "What about this one, Dhamma? Which " + I + "?",
+    "Let's see, do you recognize this " + T + "?",
+    "Another " + T + " for you! What " + I + "?",
+    "Ooh, interesting " + T + "! Do you know which " + I + " it is?",
+    "Take a good look, Dhamma! Which " + I + " is this?",
+    "Here comes the next one! What " + I + "?",
+    "Can you name this " + I + ", Dhamma?"
+  ];
+  if (game === 'airlines') base.push(
+    "Look at the tail of this airplane! Which airline is it?",
+    "Ooh, see the colors on the tail? Whose airplane is this?",
+    "Detective Dhamma! Look at the tail and tell me the airline!"
+  );
+  return pick(base);
 }
 
 function getCorrectResponse(flag) {
   const name = flag.name;
+  const g = G();
 
   // First try correct with streak
   if (attempts === 0 && streak >= 5) return pick([
     "Oh my goodness, " + streak + " in a row! " + name + "! You're incredible, Dhamma!",
     "No way! " + name + "! That's " + streak + " perfect answers! The audience can't believe it!",
-    name + "! " + streak + " in a row! Is there any flag you don't know?"
+    name + "! " + streak + " in a row! Is there any " + g.thing + " you don't know?"
   ]);
 
   if (attempts === 0 && streak >= 3) return pick([
@@ -536,7 +768,7 @@ function getCorrectResponse(flag) {
   if (attempts === 0) return pick([
     "Yes! That's " + name + "! Excellent job, Dhamma!",
     name + "! You got it! Amazing!",
-    "Wow, " + name + "! Perfect! You really know your flags!",
+    "Wow, " + name + "! Perfect! You really know your " + g.things + "!",
     name + "! Absolutely right! Brilliant, Dhamma!",
     "That's correct! " + name + "! Well done!",
     name + "! Spot on! You're so smart!",
@@ -560,6 +792,8 @@ function getCorrectResponse(flag) {
 
 function getWrongReaction(heardText, flag) {
   const correct = flag;
+  const g = G(); const T = g.thing, I = g.item;
+  const lookWord = game === 'airlines' ? 'tail' : 'flag';
 
   // Use smart identification instead of simple alias check
   const guessedFlag = identifyGuessedCountry(heardText, correct);
@@ -570,20 +804,20 @@ function getWrongReaction(heardText, flag) {
     if (attempts === 0) {
       if (guessedFlag.look && correct.look) {
         return pick([
-          "Ooh, " + gName + "? I can see why you'd think that! But " + gName + "'s flag is " + guessedFlag.look + ". Look carefully, this flag is " + correct.look + "! Let me give you a hint.",
-          "Good guess, " + gName + "! But remember, " + gName + " has a flag that's " + guessedFlag.look + ". This one looks different, right? It's " + correct.look + "! Here's a clue.",
-          gName + "! That's a great country, Dhamma! But " + gName + "'s flag is " + guessedFlag.look + ", and this flag is " + correct.look + ". They're different! Let me help you.",
+          "Ooh, " + gName + "? I can see why you'd think that! But " + gName + "'s " + lookWord + " is " + guessedFlag.look + ". Look carefully, this one is " + correct.look + "! Let me give you a hint.",
+          "Good guess, " + gName + "! But remember, " + gName + " has a " + lookWord + " that's " + guessedFlag.look + ". This one looks different, right? It's " + correct.look + "! Here's a clue.",
+          gName + "! That's a great " + I + ", Dhamma! But " + gName + "'s " + lookWord + " is " + guessedFlag.look + ", and this one is " + correct.look + ". They're different! Let me help you.",
         ]);
       }
       return pick([
-        "Ooh, " + gName + "? That's a real country! But not this one. Look at the colors carefully! Let me give you a hint.",
-        gName + "! Good thinking, Dhamma! But this is a different flag. Let me help you!",
+        "Ooh, " + gName + "? That's a real " + I + "! But not this one. Look at the colors carefully! Let me give you a hint.",
+        gName + "! Good thinking, Dhamma! But this is a different " + T + ". Let me help you!",
       ]);
     }
     if (attempts === 1) {
       return pick([
         "Not " + gName + " either! But you're getting closer. Here's a bigger hint!",
-        "Hmm, " + gName + " is " + (guessedFlag.continent === correct.continent ? "in the same area" : "in " + guessedFlag.continent) + ", but this is a different country. One more clue!",
+        "Hmm, " + gName + " is " + (regionOf(guessedFlag) === regionOf(correct) ? "from the same place" : "from " + regionOf(guessedFlag)) + ", but this is a different " + I + ". One more clue!",
       ]);
     }
     return pick([
@@ -592,12 +826,12 @@ function getWrongReaction(heardText, flag) {
     ]);
   }
 
-  // No country recognized — respond naturally to what was heard
+  // No item recognized — respond naturally to what was heard
   if (attempts === 0) {
     return pick([
-      "Hmm, I heard you say something but I'm not sure which country you mean! This flag is " + correct.look + ". Let me give you a hint!",
-      "Ooh, not quite! Take a good look, this flag is " + correct.look + ". Here's a clue!",
-      "I didn't catch a country name there, Dhamma! Look at the colors, it's " + correct.look + ". Let me help you!",
+      "Hmm, I heard you say something but I'm not sure which " + I + " you mean! This " + lookWord + " is " + correct.look + ". Let me give you a hint!",
+      "Ooh, not quite! Take a good look, this " + lookWord + " is " + correct.look + ". Here's a clue!",
+      "I didn't catch an " + I + " name there, Dhamma! Look at the colors, it's " + correct.look + ". Let me help you!",
     ]);
   }
   if (attempts === 1) return pick([
@@ -611,9 +845,9 @@ function getWrongReaction(heardText, flag) {
 }
 
 function getHintMessage(flag, attempt) {
-  const f = flag;
+  const f = flag; const g = G();
   if (attempt === 1) {
-    return "This country is in " + f.continent + ", and the name starts with the letter " + f.name[0] + ". What do you think?";
+    return "This " + g.item + " " + g.from + " " + regionOf(f) + ", and the name starts with the letter " + f.name[0] + ". What do you think?";
   } else if (attempt === 2) {
     return f.hint + ". Remember, it starts with " + f.name[0] + ". Can you guess now?";
   } else {
@@ -627,9 +861,10 @@ function getHintMessage(flag, attempt) {
 }
 
 function getRevealMessage(flag) {
+  const lookWord = game === 'airlines' ? 'airplane' : 'flag';
   return pick([
-    "The answer is " + flag.name + "! See, the flag is " + flag.look + ". Can you say " + flag.name + " for me?",
-    "This flag belongs to " + flag.name + "! Remember, " + flag.look + ". Let's practice, say " + flag.name + "!",
+    "The answer is " + flag.name + "! See, the " + lookWord + " is " + flag.look + ". Can you say " + flag.name + " for me?",
+    "This " + lookWord + " belongs to " + flag.name + "! Remember, " + flag.look + ". Let's practice, say " + flag.name + "!",
     "It's " + flag.name + "! Now you know, " + flag.look + " means " + flag.name + ". Can you repeat " + flag.name + "?",
   ]);
 }
@@ -651,11 +886,12 @@ function getRepeatFail(name) {
 }
 
 function getEndMessage() {
+  const g = G();
   const pct = Math.round(firstTryCorrect / activeFlags.length * 100);
-  if (pct >= 90) return "Dhamma, you are absolutely incredible! " + correctCount + " flags correct! You're a true flag champion! Give Dhamma a big round of applause everyone!";
-  if (pct >= 70) return "Wow Dhamma, " + correctCount + " flags correct! That is amazing for a 4 year old! Everyone please give Dhamma a big hand!";
-  if (pct >= 50) return "Great job Dhamma! You got " + correctCount + " flags! You learned so many countries today! Let's all clap for Dhamma!";
-  return "Well done Dhamma! You tried all " + activeFlags.length + " flags and learned so many new countries! You're a brave superstar! Clap clap clap!";
+  if (pct >= 90) return "Dhamma, you are absolutely incredible! " + correctCount + " " + g.things + " correct! You're a true " + g.champion + "! Give Dhamma a big round of applause everyone!";
+  if (pct >= 70) return "Wow Dhamma, " + correctCount + " " + g.things + " correct! That is amazing for a 4 year old! Everyone please give Dhamma a big hand!";
+  if (pct >= 50) return "Great job Dhamma! You got " + correctCount + " " + g.things + "! You learned so many " + g.items + " today! Let's all clap for Dhamma!";
+  return "Well done Dhamma! You tried all " + activeFlags.length + " " + g.things + " and learned so many new " + g.items + "! You're a brave superstar! Clap clap clap!";
 }
 
 // === MODE SELECTION ===
@@ -759,7 +995,7 @@ function stopTimer() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById('screen-' + id).classList.remove('hidden');
-  document.body.className = 'bg-' + id;
+  document.body.className = (id === 'flags') ? G().bg : 'bg-' + id;
 }
 
 function fireConfetti() {
@@ -1117,8 +1353,8 @@ async function transcribeWithWhisper(audioBlob) {
   formData.append('model', 'whisper-1');
   formData.append('language', 'en');
   // Prompt helps Whisper understand context — list country names
-  const flagNames = FLAGS.map(f => f.name).join(', ');
-  formData.append('prompt', 'A 4-year-old Thai child is naming countries. Possible words: ' + flagNames + '. The child has a Thai accent and may mispronounce words.');
+  const flagNames = G().data.map(f => f.name).join(', ');
+  formData.append('prompt', G().whisperPrompt + flagNames + '. The child has a Thai accent and may mispronounce words.');
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
@@ -1274,9 +1510,13 @@ function stopListening() {
 // === ANSWER MATCHING (KID-FRIENDLY, SENTENCE-AWARE) ===
 
 // Strip conversational wrappers to extract the country name
+// Words that appear in MANY airline names — never let them decide a match on their own
+const GENERIC_AIRLINE_WORDS = ['airline','airlines','airways','airway','air','international','plane','airplane','tail'];
+
 function cleanHeard(text) {
-  return text.toLowerCase()
-    .replace(/[^a-z\s]/g, '')
+  let t = text.toLowerCase().replace(/[^a-z\s]/g, '');
+  if (game === 'airlines') t = t.replace(/\b(airline|airlines|airways|airway|air|plane|airplane|tail)\b/g, ' ');
+  return t
     .replace(/\b(the|a|an|is|it|its|this|that|one|flag|country|called|named)\b/g, '')
     .replace(/\b(i think|i say|i said|i believe|it is|its a|this is|that is|maybe|probably|could be|might be|must be|should be|has to be)\b/g, '')
     .replace(/\b(looks like|look like|sounds like|i see|i guess|my answer|my guess)\b/g, '')
@@ -1314,6 +1554,10 @@ function checkAnswer(transcripts, flag) {
   if (!transcripts) return false;
   const aliases = flag.aliases.map(a => a.toLowerCase());
   const aliasPhonetics = aliases.map(a => phonetic(a));
+  // Single-word aliases that belong to OTHER items (e.g. "thai" → Thai Airways) must not count
+  // as a distinctive word for this item (e.g. "thai" inside "thai lion air")
+  const othersSingle = new Set();
+  for (const o of G().data) { if (o === flag) continue; for (const a of o.aliases) if (!a.includes(' ')) othersSingle.add(a.toLowerCase()); }
   
   // Check reject words — if raw transcript contains a reject phrase, skip this flag
   const rejectList = (flag.reject || []).map(r => r.toLowerCase());
@@ -1335,13 +1579,17 @@ function checkAnswer(transcripts, flag) {
         // 1. Exact/contains (require heard to be substantial - at least 60% of alias length)
         if (heard.includes(alias)) return true;
         if (alias.includes(heard) && heard.length >= Math.max(4, alias.length * 0.6)) return true;
-        // 2. Phonetic
-        if (heardP.includes(aliasP)) return true;
+        // 2. Phonetic (alias phonetic must be long enough — "thai" → "ta" would match anything)
+        if (aliasP.length >= 4 && heardP.includes(aliasP)) return true;
         if (aliasP.includes(heardP) && heardP.length >= Math.max(3, aliasP.length * 0.6)) return true;
-        // 3. Starts-with
-        if (alias.length >= 4 && heard.length >= 3) {
+        // 3. Starts-with (partial pronunciation, e.g. "Chi..." → China)
+        if (alias.length >= 4 && heard.length >= 3 && heard.length < alias.length) {   // heard must be SHORTER (a partial), "indonesia" is not a partial of "india"
           const prefix = alias.substring(0, Math.min(heard.length, Math.ceil(alias.length * 0.6)));
-          if (heard.startsWith(prefix) || heardP.startsWith(phonetic(prefix))) return true;
+          if (heard.includes(' ') || prefix.trim().length < 3) continue;                 // a partial is ONE short word ("chi..."), never "la la la"
+          const firstWord = alias.split(' ')[0];
+          // Don't let just the FIRST word of a multi-word alias match when that word is another item's name ("thai" → Thai Lion Air)
+          const onlyFirstWord = alias.includes(' ') && prefix.trim().length <= firstWord.length && (othersSingle.has(firstWord) || GENERIC_AIRLINE_WORDS.includes(firstWord));
+          if (!onlyFirstWord && (heard.startsWith(prefix) || heardP.startsWith(phonetic(prefix)))) return true;
         }
         // 4. Fuzzy (0.6 threshold — balanced for kids but blocks false positives)
         if (heard.length >= 3) {
@@ -1352,6 +1600,7 @@ function checkAnswer(transcripts, flag) {
         const aliasWords = alias.split(' ');
         if (aliasWords.length > 1) {
           for (const word of aliasWords) {
+            if (GENERIC_AIRLINE_WORDS.includes(word) || othersSingle.has(word)) continue;
             if (word.length >= 4 && (heard.includes(word) || similarity(heard, word) > 0.6)) return true;
           }
         }
@@ -1363,14 +1612,18 @@ function checkAnswer(transcripts, flag) {
 
 // Identify what country the kid most likely said (for smart reactions)
 function identifyGuessedCountry(text, correctFlag) {
-  const candidates = extractCandidates(text);
+  const candidates = extractCandidates(text).filter(c => !GENERIC_AIRLINE_WORDS.includes(c));
   let bestMatch = null, bestScore = 0;
-  for (const f of FLAGS) {
+  for (const f of G().data) {
     if (f === correctFlag) continue;
     for (const alias of f.aliases) {
+      const aliasWords = alias.split(' ').filter(w => !GENERIC_AIRLINE_WORDS.includes(w));
       for (const c of candidates) {
-        if (c.includes(alias) || alias.includes(c)) return f;
-        const score = Math.max(similarity(c, alias), similarity(phonetic(c), phonetic(alias)));
+        let score = 0;
+        if (c === alias) score = 1;
+        else if (alias.length >= 4 && c.includes(alias)) score = 0.95;               // said the whole alias (plus extra words)
+        else if (c.length >= 4 && aliasWords.includes(c)) score = 0.75;            // said one distinctive word of the alias
+        else score = Math.max(similarity(c, alias), similarity(phonetic(c), phonetic(alias)));
         if (score > bestScore && score > 0.5) { bestScore = score; bestMatch = f; }
       }
     }
@@ -1399,7 +1652,17 @@ function levenshtein(a, b) {
 // === FLAGS RENDERING ===
 function renderFlag() {
   const f = activeFlags[flagIdx];
-  document.getElementById('flag-img').src = 'https://flagcdn.com/w1280/' + f.code + '.png';
+  const isAirline = game === 'airlines';
+  document.getElementById('flag-frame').classList.toggle('hidden', isAirline);
+  document.getElementById('plane-frame').classList.toggle('hidden', !isAirline);
+  if (isAirline) {
+    loadAirlineImage(f);
+    setPlaneZoom(true, false);          // start zoomed in on the tail
+    document.getElementById('plane-airline-badge').textContent = f.name;
+    document.getElementById('plane-zoom-hint').textContent = '🔍 ' + (f.zoomLabel || 'LOOK AT THE TAIL');
+  } else {
+    document.getElementById('flag-img').src = 'https://flagcdn.com/w1280/' + f.code + '.png';
+  }
   document.getElementById('flags-counter').textContent = (flagIdx+1) + ' / ' + activeFlags.length;
   document.getElementById('flags-progress').style.width = ((flagIdx+1)/activeFlags.length*100)+'%';
   document.getElementById('flags-question').classList.remove('hidden');
@@ -1419,6 +1682,7 @@ function updateButtons() {
 }
 
 function revealAnswer(name) {
+  if (game === 'airlines') setPlaneZoom(false, true);   // zoom out to the full airplane
   document.getElementById('flags-question').classList.add('hidden');
   const a = document.getElementById('flags-answer');
   a.classList.remove('hidden'); a.style.animation = 'none'; a.offsetHeight; a.style.animation = 'popIn 0.5s ease-out';
@@ -1437,7 +1701,7 @@ function showNextButton() {
 // === START ===
 function startFlags() {
   // Set active flag list based on mode
-  activeFlags = (mode === 'ai') ? shuffle(FLAGS) : FLAGS;
+  activeFlags = (mode === 'ai') ? shuffle(G().data) : G().data;
   flagIdx = 0; correctCount = 0; firstTryCorrect = 0; answered = false; streak = 0;
   showScreen('flags');
   renderFlag();
@@ -1559,20 +1823,20 @@ function onSilence() {
     if (nudgeCount === 2 && attempts < MAX_HINTS) attempts++;
     if (nudgeCount >= 3) { doReveal(f); return; }
     askAI(`SITUATION: Dhamma has been quiet for a while (silence #${nudgeCount}).
-${nudgeCount === 1 ? 'Gently encourage him. Describe something about the flag to get him thinking.' : 'He is still quiet. Give a stronger hint — mention the continent or first letter of the country.'}
-🚨 If you mention the flag's colors/design, use ONLY: "${f.look}". Do NOT invent colors.
+${nudgeCount === 1 ? 'Gently encourage him. Describe something about the ' + lookWord() + ' to get him thinking.' : 'He is still quiet. Give a stronger hint — mention the ' + G().regionWord + ' (' + regionOf(f) + ') or first letter of the ' + G().item + '.'}
+🚨 If you mention the ${lookWord()}'s colors/design, use ONLY: "${f.look}". Do NOT invent colors.
 Remember: don't reveal "${f.name}"! Just encourage and hint.`).then(result => {
-      const msg = result?.response || "Hey Dhamma, this flag is " + f.look + ". Give it a try!";
+      const msg = result?.response || "Hey Dhamma, this " + lookWord() + " is " + f.look + ". Give it a try!";
       trackWord(result);
       addToHistory('teacher', msg);
       speak(msg);
     }).catch(() => {
-      speak("Hey Dhamma, look at this flag! It's " + f.look + ". What country is it?");
+      speak("Hey Dhamma, look at this " + lookWord() + "! It's " + f.look + ". Which " + G().item + " is it?");
     });
   } else if (nudgeCount === 1) {
     speak(pick([
-      "Take your time, Dhamma! Look at the colors on this flag. It's " + f.look + ". Do you know which country this is?",
-      "Hey Dhamma, are you thinking? This flag is " + f.look + ". Any idea which country?",
+      "Take your time, Dhamma! Look at the colors on this " + lookWord() + ". It's " + f.look + ". Do you know which " + G().item + " this is?",
+      "Hey Dhamma, are you thinking? This " + lookWord() + " is " + f.look + ". Any idea which " + G().item + "?",
     ]));
   } else if (nudgeCount === 2) {
     if (attempts < MAX_HINTS) {
@@ -1594,9 +1858,10 @@ function doReveal(f) {
   setAIStatus('wrong', '📖 ' + f.name);
 
   if (useAI()) {
-    askAI(`SITUATION: Time to reveal the answer! Dhamma couldn't guess this flag.
+    askAI(`SITUATION: Time to reveal the answer! Dhamma couldn't guess this ${G().thing}.
 The answer is: ${f.name}
-Tell him warmly: "It's [country]!" + teach ONE fun fact about ${f.name} in simple English + ask him to say "${f.name}" for pronunciation practice.
+${game === 'airlines' ? 'The picture is now zooming out to show the WHOLE airplane — you can mention that!' : ''}
+Tell him warmly: "It's ${f.name}!" + teach ONE fun fact about ${f.name} in simple English (you may use: ${f.hint}) + ask him to say "${f.name}" for pronunciation practice.
 Be encouraging — "Now you know!" Don't make him feel bad.`).then(result => {
       const msg = result?.response || getRevealMessage(f);
       trackWord(result);
@@ -1626,26 +1891,28 @@ function aiStartRound() {
   const f = activeFlags[flagIdx];
   if (useAI()) {
     setAIStatus('speaking', '🧠 Getting ready...');
-    askAI(`SITUATION: New flag! Ask Dhamma about flag #${flagIdx + 1} of ${activeFlags.length}.
-${flagIdx === 0 ? '🎬 FIRST FLAG! This is the AI Teacher round — Dhamma already showed he knows 30 flags, now YOU are testing him with 30 random flags while teaching English! Be super excited! Introduce yourself as his English teacher and flag challenger.' : ''}
-${flagIdx === activeFlags.length - 1 ? '🏁 LAST FLAG! Build excitement — this is the grand finale!' : ''}
-${streak >= 3 ? '🔥 Dhamma is on a ' + streak + '-flag streak! Reference this!' : ''}
-${flagIdx > 0 && flagIdx % 10 === 0 ? '🎯 Milestone! Flag ' + (flagIdx+1) + '! Mention the progress.' : ''}
-${correctCount > 0 && flagIdx > 0 ? 'Last flag result: ' + (conversationHistory.slice(-3).find(h => h.role === 'teacher')?.content || 'moved on') : ''}
+    const T = G().thing, I = G().item, TU = G().thing.toUpperCase();
+    askAI(`SITUATION: New ${T}! Ask Dhamma about ${T} #${flagIdx + 1} of ${activeFlags.length}.
+${flagIdx === 0 ? '🎬 FIRST ' + TU + '! This is the AI Teacher round — Dhamma already showed he knows ' + activeFlags.length + ' ' + G().things + ', now YOU are testing him with ' + activeFlags.length + ' random ' + G().things + ' while teaching English! Be super excited! Introduce yourself as his English teacher and ' + T + ' challenger.' : ''}
+${flagIdx === activeFlags.length - 1 ? '🏁 LAST ' + TU + '! Build excitement — this is the grand finale!' : ''}
+${streak >= 3 ? '🔥 Dhamma is on a ' + streak + '-' + T + ' streak! Reference this!' : ''}
+${flagIdx > 0 && flagIdx % 10 === 0 ? '🎯 Milestone! ' + T[0].toUpperCase() + T.slice(1) + ' ' + (flagIdx+1) + '! Mention the progress.' : ''}
+${correctCount > 0 && flagIdx > 0 ? 'Last ' + T + ' result: ' + (conversationHistory.slice(-3).find(h => h.role === 'teacher')?.content || 'moved on') : ''}
+${game === 'airlines' ? '✈️ Dhamma sees ONLY the TAIL of the airplane right now (zoomed in). The whole airplane appears after he answers.' : ''}
 
-IMPORTANT: Ask about this flag in a CREATIVE, UNIQUE way. 1-2 sentences max.
-DO NOT say the country name "${f.name}"!
-DO NOT just say "What country is this?" — be imaginative!
+IMPORTANT: Ask about this ${T} in a CREATIVE, UNIQUE way. 1-2 sentences max.
+DO NOT say the ${I} name "${f.name}"!
+DO NOT just say "Which ${I} is this?" — be imaginative!
 🚨 If you mention colors/design, use ONLY these words: "${f.look}". Do NOT guess or invent colors.
 
 Ideas (pick ONE approach, vary each time):
-- Comment on the flag's colors/design, then ask
+- Comment on the ${lookWord()}'s colors/design, then ask
 - Reference the streak or score
 - Make it exciting ("Ooh this is a cool one!")  
-- Give a tiny preview ("This country is in Asia...")
-- Compare to a previous flag ("This one looks very different from the last!")
+- Give a tiny preview ("This ${I} ${G().from} ${regionOf(f)}...")
+- Compare to a previous ${T} ("This one looks very different from the last!")
 - Use fun language ("Detective Dhamma, can you crack this one?")
-- Reference the number ("Flag number 15! We're almost halfway!")
+- Reference the number ("${T[0].toUpperCase() + T.slice(1)} number 15! We're almost halfway!")
 `).then(result => {
       const msg = result?.response || getQuestion();
       trackWord(result);
@@ -1664,7 +1931,7 @@ Ideas (pick ONE approach, vary each time):
 function countCountriesInText(text) {
   const heard = text.toLowerCase().replace(/[^a-z\s]/g, '');
   const matched = [];
-  for (const f of FLAGS) {
+  for (const f of G().data) {
     for (const a of f.aliases) {
       // Only match aliases >= 4 chars, and require word-boundary-like match
       if (a.length < 4) continue;
@@ -1725,13 +1992,95 @@ function buildHistory() {
 
 function getAISystemPrompt() {
   const flag = activeFlags[flagIdx];
-  const flagNames = FLAGS.map(f => f.name).join(', ');
+  const g = G();
+  const T = g.thing, I = g.item, Ts = g.things, Is = g.items;
+  const flagNames = g.data.map(f => f.name).join(', ');
+  const isAir = game === 'airlines';
+  const LOOK = isAir ? 'TAIL / LIVERY COLORS' : 'FLAG COLORS/DESIGN';
+  const lookOf = isAir ? 'airplane tail' : 'flag';
 
-  return `You are Dhamma's personal AI English teacher — warm, fun, genuinely caring, and incredibly smart. You're having a REAL conversation with a brilliant 4-year-old Thai boy named Dhamma while playing a flag quiz game. Your goal: teach English naturally through every interaction.
+  // ---- Game-specific blocks ----
+  const gameIntro = isAir
+    ? `playing an AIRLINE quiz game. He sees an AIRPLANE zoomed in on its TAIL (the fin at the back with the airline's colors) and must name the AIRLINE. When he answers correctly, the picture zooms out to show the whole airplane.`
+    : `playing a flag quiz game.`;
+
+  const smartLine = isAir
+    ? `• Amazingly smart — loves airplanes and already knows many airline tails from the airport!`
+    : `• Amazingly smart — recognizes 50+ country flags already!`;
+
+  const teachBlock = isAir ? `After correct answers — teach a fun fact + new word:
+• "Yes! Thai Airways! Did you know Thai Airways flies all the way from Bangkok to London? 'Tail' is the back part of the airplane, like a fish's tail! Can you say 'tail'?"
+• "Emirates! Amazing! Emirates has the biggest airplanes with TWO floors! 'Floor' is what you walk on. Say 'floor'!"
+• "Qantas! Wow! There's a kangaroo on the tail because kangaroos live in Australia. 'Kangaroo' — say it with me!"
+
+After wrong answers — teach through the hint:
+• "Hmm, I heard Japan Airlines! But look, this tail is bright red with white letters. 'Letters' are A, B, C — the alphabet! The red airplane with letters is a cheap airline..."
+• "Good try! But this tail is dark blue with a golden bird. 'Golden' means shiny like gold! Which airline has a golden bird?"
+
+After unclear speech — teach about the airplane itself:
+• "I didn't catch that! But wow, look at this tail — it's so yellow! 'Yellow' like a banana! Which airline has a yellow tail?"
+
+Vocabulary to teach: colors (red, blue, white, yellow, green, purple, gold), airplane parts (tail, wing, engine, window, nose, wheel, pilot), sky words (fly, cloud, airport, ticket, passenger, take off, land), size (big, small, huge, tiny), animals on tails (bird, crane, kangaroo, lion, kite), countries and cities.`
+  : `After correct answers — teach a fun fact + new word:
+• "Yes! Japan! Did you know Japan is made of islands? 'Island' means land with water all around it, like a puzzle piece floating in the ocean! Can you say 'island'?"
+• "China! Amazing! China has a really long wall called the Great Wall. 'Wall' is like the wall in your room, but super duper long! Say 'wall'!"
+
+After wrong answers — teach through the hint:
+• "Hmm, I heard Japan! But look, this flag has five yellow stars. 'Stars' are the sparkly lights in the sky at night! The country with five stars is a really big one..."
+• "Good try! But this flag has stripes going sideways. 'Stripes' means long lines of color, like a zebra!"
+
+After unclear speech — teach about the flag itself:  
+• "I didn't catch that! But wow, look at this flag — it's so red! 'Red' like an apple! What country has a red flag with stars?"
+
+Vocabulary to teach: colors (red, blue, white, yellow, green), shapes (star, circle, cross, stripe, crescent), size (big, small, huge, tiny), position (top, bottom, middle), geography (island, mountain, river, ocean), animals, food, famous things.`;
+
+  const accentBlock = isAir ? `THAI ACCENT MAPPINGS (airlines):
+"tie airway/thai airway/thai air/thai"=Thai Airways, "air esia/air ay sia/air asian"=AirAsia,
+"nok ear/knock air/nok"=Nok Air, "bangkok air"=Bangkok Airways, "lion/lai on air"=Thai Lion Air,
+"wiet jet/biet jet"=Thai Vietjet, "singabo/singapo airline/singapore"=Singapore Airlines,
+"ka tay/katay"=Cathay Pacific, "emirit/emirate"=Emirates, "ka tar/katar/cutter"=Qatar Airways,
+"ja pan air/jal"=Japan Airlines, "ah na/anna/a n a"=ANA, "kolean air/korea air"=Korean Air,
+"eba air/ee va"=EVA Air, "galuda"=Garuda Indonesia, "loof tansa/luftansa"=Lufthansa,
+"kwantas/kan tas"=Qantas, "kay el em"=KLM, "skoot"=Scoot, "jet sta"=Jetstar, "swis air"=Swiss
+NOTE: Saying just the country ("Japan", "Korea", "Singapore", "Vietnam", "Malaysia") is a GOOD partial answer — if it matches the correct airline's country, gently ask "Yes, from Japan! Which airline?" (action "unclear"), unless the airline name IS the country word (Thai → Thai Airways, Singapore → Singapore Airlines, Korea → Korean Air, Vietnam → Vietnam Airlines, Malaysia → Malaysia Airlines) — then it's CORRECT.`
+  : `THAI ACCENT MAPPINGS:
+"chai na/jai na"=China, "jah pan/ya pan"=Japan, "tie land/tai len"=Thailand, 
+"boo tan"=Bhutan, "singabo/singa po"=Singapore, "in dia"=India, "ko ree a"=Korea,
+"po len/poh land"=Poland, "bra zil/bra sin"=Brazil, "mek si ko"=Mexico,
+"oh man"=Oman, "eye ran"=Iran, "eye rack"=Iraq, "sa u dee"=Saudi Arabia,
+"bang la desh"=Bangladesh, "pak i stan"=Pakistan, "tur key"=Turkey,
+"ee jip"=Egypt, "af ri ka"=South Africa, "os tray lee a"=Australia`;
+
+  const ex = isAir
+    ? { correct: '"Thai Airways" / "tie airway" / "um is Thai Airways" / "hmm the Thai" / "oh oh Thai!"', wrong: '"Japan Airlines" (but airline is Thai Airways) / "Emirates" / "AirAsia"', notMatch: '"kala" is NOT Qatar Airways. "la la" is NOT Lion Air. "ah" is NOT ANA. Do NOT match gibberish to airlines!', describe: '"it\'s red" / "I see a bird" / "yellow tail" / "has a kangaroo"', many: '"Thai Airways Emirates Qantas AirAsia"', partial: '"Thai..." / "Emi..." / "Sing..."' }
+    : { correct: '"China" / "chai na" / "um is China" / "hmm the China" / "oh oh China!"', wrong: '"Japan" (but flag is China) / "Thailand" / "India"', notMatch: '"kala" is NOT Qatar. "la la" is NOT Laos. Do NOT match gibberish to countries!', describe: '"it\'s red" / "I see stars" / "blue and white" / "has a circle"', many: '"Japan China Korea Thailand"', partial: '"Chi..." / "Ja..." / "Tha..."' };
+
+  const askExamples = isAir ? `• "Ooh, check out this tail! I love the colors on this one. Whose airplane is it?"
+• "Okay Dhamma, here's a tricky one! Look carefully at the tail. Which airline?"
+• "Ta-da! New airplane! There's something really cool on the tail. Can you name this airline?"
+• "Ready for the next one? This tail makes me think of an animal. What airline is it?"
+• "Wow, look at airplane number 5! The tail is so pretty. Do you recognize the airline?"
+• "Here we go, Dhamma! This airplane flies from a country you know. Which airline?"
+• Reference what just happened: "After that awesome answer, let's see if you know this one too!"
+• Reference the streak: "That's 3 in a row! Can you make it 4? Which airline is THIS?"
+• For the first airplane: "Alright Dhamma, welcome to our airline game! I'm your teacher and we're going to have SO much fun! Look at this tail — do you know the airline?"
+• For the last airplane: "Oh wow, this is our VERY LAST airplane! You've been incredible! Let's finish strong!"`
+  : `• "Ooh, check out this next flag! I love the colors on this one. Do you know where it's from?"
+• "Okay Dhamma, here's a tricky one! Look carefully at the design. Which country?"
+• "Ta-da! New flag! This one has something really cool on it. Can you name this country?"
+• "Ready for the next one? This flag makes me think of something fun. What country is it?"
+• "Wow, look at flag number 5! The colors are so pretty. Do you recognize it?"
+• "Here we go, Dhamma! This flag has an interesting shape on it. Which country?"
+• Reference what just happened: "After that awesome answer, let's see if you know this one too!"
+• Reference the streak: "That's 3 in a row! Can you make it 4? What country is THIS?"
+• For the first flag: "Alright Dhamma, welcome to our flag game! I'm your teacher and we're going to have SO much fun! Let's start — do you know this flag?"
+• For the last flag: "Oh wow, this is our VERY LAST flag! You've been incredible! Let's finish strong!"`;
+
+  return `You are Dhamma's personal AI English teacher — warm, fun, genuinely caring, and incredibly smart. You're having a REAL conversation with a brilliant 4-year-old Thai boy named Dhamma while ${gameIntro} Your goal: teach English naturally through every interaction.
 
 ═══ WHO IS DHAMMA ═══
 • 4 years old, Thai boy, native Thai speaker, learning English
-• Amazingly smart — recognizes 50+ country flags already!
+${smartLine}
 • Thai accent: r→l, v→w, th→t, drops final consonants
 • Normal 4-year-old behaviors: says "umm/hmm" before answering, gets excited, sometimes silly, sometimes shy, sometimes distracted
 • His speech is transcribed by Whisper AI which may mishear things
@@ -1748,136 +2097,110 @@ Be like a favorite uncle/aunt — someone who makes learning feel like play:
 ═══ ENGLISH TEACHING (weave in naturally, never forced) ═══
 Teach ONE thing per interaction — pick what fits the moment:
 
-After correct answers — teach a fun fact + new word:
-• "Yes! Japan! Did you know Japan is made of islands? 'Island' means land with water all around it, like a puzzle piece floating in the ocean! Can you say 'island'?"
-• "China! Amazing! China has a really long wall called the Great Wall. 'Wall' is like the wall in your room, but super duper long! Say 'wall'!"
-
-After wrong answers — teach through the hint:
-• "Hmm, I heard Japan! But look, this flag has five yellow stars. 'Stars' are the sparkly lights in the sky at night! The country with five stars is a really big one..."
-• "Good try! But this flag has stripes going sideways. 'Stripes' means long lines of color, like a zebra!"
-
-After unclear speech — teach about the flag itself:  
-• "I didn't catch that! But wow, look at this flag — it's so red! 'Red' like an apple! What country has a red flag with stars?"
-
-Vocabulary to teach: colors (red, blue, white, yellow, green), shapes (star, circle, cross, stripe, crescent), size (big, small, huge, tiny), position (top, bottom, middle), geography (island, mountain, river, ocean), animals, food, famous things.
+${teachBlock}
 
 ═══ CURRENT GAME STATE ═══
-Flag: ${flagIdx + 1} of ${activeFlags.length} | Score: ${correctCount} correct, ${firstTryCorrect} first-try | Streak: ${streak}
-Current flag: ${flag.name} | FLAG COLORS/DESIGN: ${flag.look} | Continent: ${flag.continent}
+${T[0].toUpperCase() + T.slice(1)}: ${flagIdx + 1} of ${activeFlags.length} | Score: ${correctCount} correct, ${firstTryCorrect} first-try | Streak: ${streak}
+Current ${I}: ${flag.name} | ${LOOK}: ${flag.look} | ${g.regionWord[0].toUpperCase() + g.regionWord.slice(1)}: ${regionOf(flag)}
 Fun fact: ${flag.hint} | Attempts used: ${attempts} of ${MAX_HINTS}
-${streak >= 3 ? '🔥 ON A ' + streak + '-FLAG STREAK!' : ''}${flagIdx === 0 ? ' | 🎬 FIRST FLAG — introduce the game excitedly!' : ''}${flagIdx === activeFlags.length - 1 ? ' | 🏁 LAST FLAG!' : ''}
+${streak >= 3 ? '🔥 ON A ' + streak + '-' + T.toUpperCase() + ' STREAK!' : ''}${flagIdx === 0 ? ' | 🎬 FIRST ' + T.toUpperCase() + ' — introduce the game excitedly!' : ''}${flagIdx === activeFlags.length - 1 ? ' | 🏁 LAST ' + T.toUpperCase() + '!' : ''}
 
-🚨🚨🚨 CRITICAL — FLAG DESCRIPTION RULE 🚨🚨🚨
-When describing the flag's colors or design, you MUST copy EXACTLY from "FLAG COLORS/DESIGN" above.
-Do NOT use your own knowledge of what the flag looks like. Your knowledge may be WRONG.
-Example: If FLAG COLORS/DESIGN says "green, white and red vertical stripes", say EXACTLY that — NOT "orange, white and green".
-If you are not sure, just say "Look at this flag!" without describing colors.
+🚨🚨🚨 CRITICAL — ${lookOf.toUpperCase()} DESCRIPTION RULE 🚨🚨🚨
+When describing the ${lookOf}'s colors or design, you MUST copy EXACTLY from "${LOOK}" above.
+Do NOT use your own knowledge of what the ${lookOf} looks like. Your knowledge may be WRONG.
+Example: If ${LOOK} says "green, white and red vertical stripes", say EXACTLY that — NOT "orange, white and green".
+If you are not sure, just say "Look at this ${lookOf}!" without describing colors.
 
-All countries in quiz: ${flagNames}
+All ${Is} in quiz: ${flagNames}
 
 ═══ UNDERSTANDING DHAMMA'S SPEECH ═══
 Whisper transcribes his voice. You must interpret intelligently:
 
-THAI ACCENT MAPPINGS:
-"chai na/jai na"=China, "jah pan/ya pan"=Japan, "tie land/tai len"=Thailand, 
-"boo tan"=Bhutan, "singabo/singa po"=Singapore, "in dia"=India, "ko ree a"=Korea,
-"po len/poh land"=Poland, "bra zil/bra sin"=Brazil, "mek si ko"=Mexico,
-"oh man"=Oman, "eye ran"=Iran, "eye rack"=Iraq, "sa u dee"=Saudi Arabia,
-"bang la desh"=Bangladesh, "pak i stan"=Pakistan, "tur key"=Turkey,
-"ee jip"=Egypt, "af ri ka"=South Africa, "os tray lee a"=Australia
+${accentBlock}
 
-FILLER WORDS (ignore these, focus on the country name):
+FILLER WORDS (ignore these, focus on the ${I} name):
 "um/umm/uh/hmm/oh/ah/like/well/okay/so/is/it/the" 
-Example: "umm... is... the... China!" → answer is CHINA
+Example: "umm... is... the... ${isAir ? 'Emirates' : 'China'}!" → answer is ${isAir ? 'EMIRATES' : 'CHINA'}
 
 ═══ WHAT DHAMMA MIGHT SAY (handle ALL of these) ═══
 
 1. CORRECT ANSWER (with or without fillers/accent):
-   "China" / "chai na" / "um is China" / "hmm the China" / "oh oh China!"
+   ${ex.correct}
    → action: "correct" — celebrate + teach English!
 
-2. WRONG COUNTRY (clearly says a different real country):
-   "Japan" (but flag is China) / "Thailand" / "India"
+2. WRONG ${I.toUpperCase()} (clearly says a different real ${I}):
+   ${ex.wrong}
    → action: "wrong" — acknowledge what you heard, give hint + teach vocabulary
    → ${attempts < MAX_HINTS ? 'Do NOT say "' + flag.name + '"!' : 'You may reveal the answer.'}
 
 3. GIBBERISH / RANDOM SOUNDS / BABBLING:
    "kala kala kala" / "ha ha he he" / "la la la" / "bah bah bah" / "gala gala"
-   → action: "unclear" — "Haha, I didn't catch a country name there! Look at this flag..."
-   → CRITICAL: "kala" is NOT Qatar. "la la" is NOT Laos. Do NOT match gibberish to countries!
+   → action: "unclear" — "Haha, I didn't catch an ${I} name there! Look at this ${lookOf}..."
+   → CRITICAL: ${ex.notMatch}
 
-4. REPEATED WORDS (not a country):
+4. REPEATED WORDS (not an ${I}):
    "hello hello hello" / "wow wow wow" / "yes yes yes" / "no no no"
-   → action: "unclear" — playfully redirect: "Hello to you too, Dhamma! Now look at this flag..."
+   → action: "unclear" — playfully redirect: "Hello to you too, Dhamma! Now look at this ${lookOf}..."
 
 5. GREETINGS / CHATTER (not trying to answer):
    "hello" / "hi" / "wow" / "oh my god" / "look mama"
-   → action: "unclear" — be warm, redirect to the flag
+   → action: "unclear" — be warm, redirect to the ${lookOf}
 
 6. GIVE UP / HELP PHRASES:
    "I don't know" / "I don't get it" / "help me" / "what is it" / "too hard" / "tell me" / "I give up" / "I forgot"
-   → action: "unclear" — encourage warmly + give a helpful hint about the flag
-   → "That's okay, Dhamma! Let me help you. See this flag? It has a big star..."
+   → action: "unclear" — encourage warmly + give a helpful hint about the ${lookOf}
+   → "That's okay, Dhamma! Let me help you. See this ${lookOf}? It has..."
 
 7. TALKING TO PARENT:
    "mama look" / "daddy what is this" / "papa help" / "mom" / "I want mama"
-   → action: "unclear" — "I think you're talking to mama! That's sweet. When you're ready, look at this flag..."
+   → action: "unclear" — "I think you're talking to mama! That's sweet. When you're ready, look at this ${lookOf}..."
 
 8. EMOTIONS / EXCITEMENT:
    "yay!" / "oh no!" / "haha" / "woohoo" / "oops" / "uh oh" 
-   → action: "unclear" — match their energy! "Haha, you're having fun! Now let's look at this flag..."
+   → action: "unclear" — match their energy! "Haha, you're having fun! Now let's look at this ${lookOf}..."
 
 9. QUESTIONS BACK:
-   "what is this?" / "which country?" / "what flag is this?"
+   "what is this?" / "which ${I}?" / "what ${T} is this?"
    → action: "unclear" — "Great question! That's what we need to figure out! Look at the colors..."
 
-10. DESCRIBING THE FLAG (not naming a country):
-    "it's red" / "I see stars" / "blue and white" / "has a circle"
-    → action: "unclear" — "Yes! You see the colors! 'Red' like an apple! Now which COUNTRY has this flag?"
+10. DESCRIBING THE ${lookOf.toUpperCase()} (not naming an ${I}):
+    ${ex.describe}
+    → action: "unclear" — "Yes! You see the colors! 'Red' like an apple! Now which ${I.toUpperCase()} is this?"
 
 11. THAI WORDS (Whisper may transcribe Thai):
     Any non-English text or strange romanized Thai
-    → action: "unclear" — "Can you say it in English, Dhamma? Look at this flag and try!"
+    → action: "unclear" — "Can you say it in English, Dhamma? Look at this ${lookOf} and try!"
 
 12. VERY SHORT / SINGLE SYLLABLES:
     "a" / "um" / "eh" / "oh" / just noise
-    → action: "unclear" — "I'm listening, Dhamma! Take your time. What country has this flag?"
+    → action: "unclear" — "I'm listening, Dhamma! Take your time. Which ${I} is this?"
 
-13. MULTIPLE COUNTRIES AT ONCE:
-    "Japan China Korea Thailand"
-    → action: "unclear" — "Whoa, I heard so many countries! You're so smart! But which ONE is this flag?"
+13. MULTIPLE ${Is.toUpperCase()} AT ONCE:
+    ${ex.many}
+    → action: "unclear" — "Whoa, I heard so many ${Is}! You're so smart! But which ONE is this ${lookOf}?"
 
 14. PARTIAL / INCOMPLETE:
-    "Chi..." / "Ja..." / "Tha..." (cut off or incomplete)
-    → Try to match to the closest country. If it matches the correct flag, → "correct"
+    ${ex.partial} (cut off or incomplete)
+    → Try to match to the closest ${I}. If it matches the correct one, → "correct"
     → If unclear → "unclear": "Almost! I think I heard the beginning. Can you say the whole name?"
 
 15. NUMBERS / COUNTING:
     "one" / "two" / "three" / "number one"
-    → action: "unclear" — "Haha, are you counting? We're looking for a COUNTRY name! Look at this flag..."
+    → action: "unclear" — "Haha, are you counting? We're looking for an ${I.toUpperCase()} name! Look at this ${lookOf}..."
 
 16. SONGS / SINGING:
     Any melodic or sing-song transcription
-    → action: "unclear" — "Beautiful singing, Dhamma! Now can you tell me which country this flag is from?"
+    → action: "unclear" — "Beautiful singing, Dhamma! Now can you tell me which ${I} this is?"
 
 ═══ ASKING NEW QUESTIONS (when action is "ask") ═══
-NEVER just say "What country is this?" — be creative EVERY time! Examples:
-• "Ooh, check out this next flag! I love the colors on this one. Do you know where it's from?"
-• "Okay Dhamma, here's a tricky one! Look carefully at the design. Which country?"
-• "Ta-da! New flag! This one has something really cool on it. Can you name this country?"
-• "Ready for the next one? This flag makes me think of something fun. What country is it?"
-• "Wow, look at flag number 5! The colors are so pretty. Do you recognize it?"
-• "Here we go, Dhamma! This flag has an interesting shape on it. Which country?"
-• Reference what just happened: "After that awesome answer, let's see if you know this one too!"
-• Reference the streak: "That's 3 in a row! Can you make it 4? What country is THIS?"
-• For the first flag: "Alright Dhamma, welcome to our flag game! I'm your teacher and we're going to have SO much fun! Let's start — do you know this flag?"
-• For the last flag: "Oh wow, this is our VERY LAST flag! You've been incredible! Let's finish strong!"
+NEVER just say "Which ${I} is this?" — be creative EVERY time! Examples:
+${askExamples}
 
 ═══ RESPONSE FORMAT ═══
 ALWAYS respond with ONLY this JSON:
 {
   "action": "correct" | "wrong" | "unclear" | "ask" | "nudge" | "celebrate" | "repeat_ok" | "repeat_fail" | "end",
-  "guess": "country name Dhamma said, or 'none'",
+  "guess": "${I} name Dhamma said, or 'none'",
   "response": "your natural spoken response (1-3 SHORT sentences for TTS)",
   "teach_word": "the English word you taught (optional)"
 }
@@ -1972,17 +2295,17 @@ function processAnswer(transcripts) {
 
     let preAnalysis = '';
     if (looksLikeGibberish) {
-      preAnalysis = `\n\n⚠️ SPEECH ANALYSIS: "${heardText}" appears to be babbling/random sounds/non-answer (${hasRepeat ? 'repeated words detected' : ''}${isShort ? 'no meaningful words' : ''}). This is very likely NOT a country guess. Default to action:"unclear" unless you can CLEARLY identify a specific country name that Dhamma intended to say.`;
+      preAnalysis = `\n\n⚠️ SPEECH ANALYSIS: "${heardText}" appears to be babbling/random sounds/non-answer (${hasRepeat ? 'repeated words detected' : ''}${isShort ? 'no meaningful words' : ''}). This is very likely NOT ${aOrAn(G().item)} guess. Default to action:"unclear" unless you can CLEARLY identify a specific ${G().item} name that Dhamma intended to say.`;
     }
 
     askAI(`SITUATION: Dhamma just answered! 
 He said: "${heardText}"
-This is attempt ${attempts} of ${MAX_HINTS} on the ${f.name} flag.
+This is attempt ${attempts} of ${MAX_HINTS} on the ${f.name} ${G().thing}.
 ${attempts === 1 ? 'First try!' : 'He already tried ' + (attempts-1) + ' time(s) before.'}
 ${lastWrong && lastWrong !== heardText ? 'Previous wrong answer was: "' + lastWrong + '"' : ''}${preAnalysis}
 
 Judge what Dhamma said and respond as his teacher.
-🚨 If you mention the flag's colors/design, use ONLY: "${f.look}". Do NOT invent colors.`).then(result => {
+🚨 If you mention the ${game === 'airlines' ? "airplane tail's" : "flag's"} colors/design, use ONLY: "${f.look}". Do NOT invent colors.`).then(result => {
       if (answered) return;
       if (!result) { aiFallback(transcripts, f); return; }
 
@@ -2024,10 +2347,10 @@ Judge what Dhamma said and respond as his teacher.
 
       // If we overrode to unclear, use a generic encouraging response instead of GPT's wrong-answer response
       const unclearFallbacks = [
-        "I didn't catch a country name there, Dhamma! Look at this flag — what country do you think it is?",
-        "Hmm, I didn't hear a country! Take a good look at the colors on this flag. Which country?",
-        "Let's try again, Dhamma! Look at this flag carefully. Can you name the country?",
-        "I'm listening! Look at the flag and tell me which country it's from!",
+        "I didn't catch " + aOrAn(G().item) + " name there, Dhamma! Look at this " + lookWord() + " — which " + G().item + " do you think it is?",
+        "Hmm, I didn't hear " + aOrAn(G().item) + "! Take a good look at the colors on this " + lookWord() + ". Which " + G().item + "?",
+        "Let's try again, Dhamma! Look at this " + lookWord() + " carefully. Can you name the " + G().item + "?",
+        "I'm listening! Look at the " + lookWord() + " and tell me which " + G().item + " it is!",
       ];
       if (overriddenToUnclear) {
         result.response = unclearFallbacks[Math.floor(Math.random() * unclearFallbacks.length)];
@@ -2038,7 +2361,7 @@ Judge what Dhamma said and respond as his teacher.
           `Yes! That's ${f.name}! Amazing, Dhamma! You're so smart!`,
           `${f.name}! You got it! Great job, Dhamma!`,
           `That's right, it's ${f.name}! Wow, you knew that one! Well done!`,
-          `${f.name}, yes! Fantastic, Dhamma! You're a flag champion!`,
+          `${f.name}, yes! Fantastic, Dhamma! You're ${aOrAn(G().champion)}!`,
         ];
         result.response = correctFallbacks[Math.floor(Math.random() * correctFallbacks.length)];
       }
@@ -2128,7 +2451,7 @@ function listenForRepeat(name) {
       answered = true;
       if (useAI()) {
         askAI(`SITUATION: Dhamma was asked to repeat "${name}" but time ran out — he was quiet or didn't try.
-Say "${name}" clearly one more time, encourage him warmly ("That's a tricky word!"), and let's move to the next flag. 1-2 sentences.`).then(result => {
+Say "${name}" clearly one more time, encourage him warmly ("That's a tricky word!"), and let's move to the next ${G().thing}. 1-2 sentences.`).then(result => {
           const msg = result?.response || getRepeatFail(name);
           addToHistory('teacher', msg);
           speak(msg, () => goNext());
@@ -2209,7 +2532,7 @@ Say "${repeatName}" clearly, tell him good try, move on happily. 1-2 sentences. 
     "what is this","i don't understand","don't understand","i have no idea",
     "don't need to think","i don't need","don't want to","i don't want",
     "i'm tired","im tired","boring","bored","stop","enough","no more",
-    "next one","next flag","move on","skip this"];
+    "next one","next flag","next plane","next airplane","move on","skip this"];
   const isIDK = idkPhrases.some(p => heard.includes(p));
 
   if (isIDK) {
@@ -2221,9 +2544,10 @@ Say "${repeatName}" clearly, tell him good try, move on happily. 1-2 sentences. 
       if (useAI()) {
         setAIStatus('speaking', '🧠 Helping...');
         askAI(`SITUATION: Dhamma said "${transcripts[0]}" — he's asking for help or saying he doesn't know.
-This is his first time asking for help on this flag. Give him a warm, encouraging hint.
+This is his first time asking for help on this ${G().thing}. Give him a warm, encouraging hint.
 Attempt ${attempts} of ${MAX_HINTS}. Don't reveal "${f.name}"!
-Be like: "That's okay! Let me help. See this flag? It has [describe]. The country starts with the letter [first letter]..."`).then(result => {
+🚨 If you mention colors/design, use ONLY: "${f.look}".
+Be like: "That's okay! Let me help. See this ${lookWord()}? It has [describe]. The ${G().item} ${G().from} ${regionOf(f)} and starts with the letter [first letter]..."`).then(result => {
           const msg = result?.response || ("That's okay, Dhamma! Let me help. " + getHintMessage(f, attempts));
           trackWord(result);
           setAIStatus('wrong', '💡 Hint ' + attempts + '/' + MAX_HINTS);
@@ -2272,8 +2596,8 @@ function endShow() {
   const aiBtn = document.getElementById('btn-ai-round');
   if (mode === 'manual' && useAI()) {
     aiBtn.classList.remove('hidden');
-    document.querySelector('.end-title').textContent = '30 Flags Complete! 🎉';
-    document.querySelector('.end-sub').textContent = 'Now let AI test Dhamma with random flags + teach English! 🧠';
+    document.querySelector('.end-title').textContent = activeFlags.length + ' ' + G().label + ' Complete! 🎉';
+    document.querySelector('.end-sub').textContent = 'Now let AI test Dhamma with random ' + G().things + ' + teach English! 🧠';
   } else {
     aiBtn.classList.add('hidden');
     document.querySelector('.end-title').textContent = 'Amazing Job, Dhamma! 🏆';
@@ -2283,11 +2607,11 @@ function endShow() {
   if (useAI()) {
     const pct = Math.round(firstTryCorrect / activeFlags.length * 100);
     askAI(`SITUATION: THE QUIZ IS FINISHED! 🎉🎊
-RESULTS: ${correctCount} correct out of ${activeFlags.length} flags, ${firstTryCorrect} on first try (${pct}% first-try accuracy).
+RESULTS: ${correctCount} correct out of ${activeFlags.length} ${G().things}, ${firstTryCorrect} on first try (${pct}% first-try accuracy).
 English words taught this session: ${wordsTaught.length > 0 ? wordsTaught.join(', ') : 'many new words'}
 
 Give a HUGE, heartfelt celebration! Make Dhamma feel like a champion!
-- Praise how many flags he knew
+- Praise how many ${G().things} he knew
 - Praise his English learning
 - ${pct >= 80 ? 'He did AMAZING!' : pct >= 50 ? 'He did really well!' : 'Praise his effort and bravery!'}
 - Make it feel like a graduation/trophy moment
@@ -2362,7 +2686,7 @@ function aiSkip() {
   revealAnswer(f.name);
   setAIStatus('idle', '⏭️ ' + f.name);
   speak(pick([
-    "This is " + f.name + "! The flag with " + f.look + ". Let's keep going!",
+    "This is " + f.name + "! The " + lookWord() + " with " + f.look + ". Let's keep going!",
     "That's " + f.name + "! Remember, " + f.look + " is " + f.name + ". On to the next one!",
     "It's " + f.name + "! Now you know! Let's move on!",
   ]), () => goNext());
@@ -2386,7 +2710,7 @@ function restart() {
 function startAIRound() {
   // Switch to AI mode with 5 curated flags
   mode = 'ai';
-  activeFlags = shuffle(FLAGS);
+  activeFlags = shuffle(G().data);
   document.getElementById('mode-ai').classList.add('active');
   document.getElementById('mode-manual').classList.remove('active');
   // Reset all state
@@ -2422,6 +2746,8 @@ function startAIRound() {
 
 // Preload flags
 FLAGS.forEach(f => { const img = new Image(); img.src = 'https://flagcdn.com/w1280/' + f.code + '.png'; });
+AIRLINES.forEach(a => { const img = new Image(); img.src = 'airlines/' + a.code + '.jpg'; });
+setGame(game);
 
 // Show Whisper status on start screen
 if (whisperKey) {

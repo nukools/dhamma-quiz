@@ -1,7 +1,7 @@
 {
-  "name": "Dhamma's Flag Quiz - AI Talent Show",
+  "name": "Dhamma's Talent Show - Flags & Airlines",
   "short_name": "Dhamma Quiz",
-  "description": "AI-powered flag quiz for Dhamma's talent show!",
+  "description": "AI-powered flag & airline quiz for Dhamma's talent show!",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
