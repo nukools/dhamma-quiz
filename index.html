@@ -1041,7 +1041,39 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById('screen-' + id).classList.remove('hidden');
   document.body.className = (id === 'flags') ? G().bg : 'bg-' + id;
+  fitScreen();
 }
+
+// === FIT TO SCREEN: shrink the visible screen (CSS zoom) so it always fits the window without scrolling ===
+let fitRaf = 0;
+function fitScreen() {
+  cancelAnimationFrame(fitRaf);
+  fitRaf = requestAnimationFrame(() => {
+    const el = document.querySelector('.screen:not(.hidden)');
+    if (!el) return;
+    const target = window.innerHeight - 2;
+    let z = 1;
+    el.style.zoom = '1'; el.style.minHeight = '0';
+    for (let i = 0; i < 5; i++) {                      // iterate: vw/vh-sized parts don't shrink linearly with zoom
+      const h = el.getBoundingClientRect().height;
+      if (h <= target + 0.5) break;
+      z = Math.max(0.45, z * target / h);
+      el.style.zoom = String(z);
+    }
+    el.style.minHeight = (target / z) + 'px';           // fill the window so content stays vertically centred
+    document.getElementById('timer-bar').style.zoom = String(z);   // the fixed top bar shrinks with the quiz screen
+    window.scrollTo(0, 0);
+  });
+}
+window.addEventListener('resize', fitScreen);
+window.addEventListener('orientationchange', fitScreen);
+// any content change (new question, AI subtitles, answer reveal, credits opened…) → refit
+new MutationObserver(muts => {
+  if (muts.some(m => !(m.type === 'attributes' && m.target.classList && m.target.classList.contains('screen')))) fitScreen();
+}).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'open'], characterData: true });
+document.addEventListener('DOMContentLoaded', fitScreen);
+window.addEventListener('load', fitScreen);
+document.fonts && document.fonts.ready.then(fitScreen);
 
 function fireConfetti() {
   const c = document.getElementById('confetti-container'); c.innerHTML = '';
