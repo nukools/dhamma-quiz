@@ -23,3 +23,15 @@ ci China Airlines · mh Malaysia Airlines · ga Garuda Indonesia · vn Vietnam A
 ai Air India · ek Emirates · qr Qatar Airways · ey Etihad · tk Turkish Airlines ·
 lh Lufthansa · ba British Airways · af Air France · kl KLM · lx Swiss · qf Qantas ·
 ca Air China · kb Druk Air · qv Lao Airlines · ac Air Canada · ms EgyptAir · ay Finnair · ib Iberia · az ITA Airways · sv Saudia · ar Aerolíneas Argentinas · su Aeroflot · nz Air New Zealand
+
+## ซ่อนข้อความเล็กบนลำตัวเครื่อง (`hide`)
+
+ถ้าภาพมีทะเบียนเครื่องหรือชื่อสายการบินตัวเล็ก ๆ โผล่ในกรอบตอนยังไม่เฉลย ใส่ `hide` ให้สายการบินนั้น
+เป็นรายการสี่เหลี่ยม (หน่วย % ของภาพ) ที่จะถูกเบลอไว้จนกว่าจะเฉลย เช่น
+
+```js
+hide: [{ x: 25.5, y: 55.5, w: 6, h: 5 }]
+```
+
+- `x, y` = มุมซ้ายบนของกรอบ, `w, h` = กว้าง/สูง (เป็น % ของภาพ)
+- พอเฉลย กรอบเบลอจะจางหายเอง
