@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dhamma-quiz-v14';
+const CACHE_NAME = 'dhamma-quiz-v15';
 const CACHE_ASSETS = [
   'icon-192.png',
   'icon-512.png'

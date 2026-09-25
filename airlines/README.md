@@ -1,6 +1,6 @@
 # ✈️ Airline photos
 
-เกมทายสายการบิน **มีรูปถ่ายเครื่องบินจริงครบทั้ง 40 สายการบินแล้ว** (จาก Wikimedia Commons, ใช้ได้ตาม CC-BY / CC-BY-SA / Public domain —
+เกมทายสายการบิน **มีรูปถ่ายเครื่องบินจริงครบทั้ง 50 สายการบินแล้ว** (จาก Wikimedia Commons, ใช้ได้ตาม CC-BY / CC-BY-SA / Public domain —
 เครดิตช่างภาพแสดงอยู่ใต้ปุ่ม "📷 Airplane photo credits" บนหน้าแรก) โหลดตรงจาก Wikimedia เหมือนที่เกมธงโหลดจาก flagcdn
 
 ตำแหน่งซูมหางของทุกรูป (`tail: {x, y, z}` ใน `AIRLINES`) ผ่านการตรวจสายตาทีละรูปแล้ว
@@ -22,7 +22,7 @@ sq Singapore Airlines · cx Cathay Pacific · jl Japan Airlines · nh ANA · ke 
 ci China Airlines · mh Malaysia Airlines · ga Garuda Indonesia · vn Vietnam Airlines · pr Philippine Airlines ·
 ai Air India · ek Emirates · qr Qatar Airways · ey Etihad · tk Turkish Airlines ·
 lh Lufthansa · ba British Airways · af Air France · kl KLM · lx Swiss · qf Qantas ·
-ca Air China · kb Druk Air · qv Lao Airlines · ac Air Canada · ms EgyptAir · ay Finnair · ib Iberia · az ITA Airways · sv Saudia · dl Delta Air Lines · su Aeroflot · nz Air New Zealand
+ca Air China · kb Druk Air · qv Lao Airlines · ac Air Canada · ms EgyptAir · ay Finnair · ib Iberia · az ITA Airways · sv Saudia · dl Delta Air Lines · aa American Airlines · 3u Sichuan Airlines · ws WestJet · nk Spirit Airlines · as Alaska Airlines · ha Hawaiian Airlines · f9 Frontier Airlines · wn Southwest Airlines · u2 easyJet · fj Fiji Airways · su Aeroflot · nz Air New Zealand
 
 ## ซ่อนข้อความเล็กบนลำตัวเครื่อง (`hide`)
 
