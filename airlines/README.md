@@ -22,7 +22,7 @@ sq Singapore Airlines · cx Cathay Pacific · jl Japan Airlines · nx Air Macau 
 ci China Airlines · mh Malaysia Airlines · ga Garuda Indonesia · vn Vietnam Airlines · pr Philippine Airlines ·
 ai Air India · ek Emirates · qr Qatar Airways · ey Etihad · tk Turkish Airlines ·
 lh Lufthansa · ba British Airways · af Air France · kl KLM · lx Swiss · qf Qantas ·
-kb Druk Air · qv Lao Airlines · ac Air Canada · ms EgyptAir · ay Finnair · ib Iberia · az ITA Airways · sv Saudia · dl Delta Air Lines · aa American Airlines · 3u Sichuan Airlines · ws WestJet · as Alaska Airlines · ha Hawaiian Airlines · f9 Frontier Airlines · wn Southwest Airlines · fj Fiji Airways · ul SriLankan Airlines · gf Gulf Air · lo LOT Polish Airlines · su Aeroflot · nz Air New Zealand
+kb Druk Air · qv Lao Airlines · ac Air Canada · ms EgyptAir · ay Finnair · ib Iberia · az ITA Airways · sv Saudi Arabian Airlines · dl Delta Air Lines · aa American Airlines · 3u Sichuan Airlines · ws WestJet · as Alaska Airlines · ha Hawaiian Airlines · f9 Frontier Airlines · wn Southwest Airlines · fj Fiji Airways · ul SriLankan Airlines · gf Gulf Air · lo LOT Polish Airlines · su Aeroflot · nz Air New Zealand
 
 ## ซ่อนข้อความเล็กบนลำตัวเครื่อง (`hide`)
 
