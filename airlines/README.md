@@ -18,7 +18,7 @@ tail: { x: 80, y: 40, z: 2.6 }
 
 ## รหัสสายการบิน
 tg Thai Airways · fd AirAsia · dd Nok Air · pg Bangkok Airways · sl Thai Lion Air · vz Thai Vietjet ·
-sq Singapore Airlines · cx Cathay Pacific · jl Japan Airlines · tn Air Tahiti Nui · ke Korean Air · br EVA Air ·
+sq Singapore Airlines · cx Cathay Pacific · jl Japan Airlines · nx Air Macau · ke Korean Air · br EVA Air ·
 ci China Airlines · mh Malaysia Airlines · ga Garuda Indonesia · vn Vietnam Airlines · pr Philippine Airlines ·
 ai Air India · ek Emirates · qr Qatar Airways · ey Etihad · tk Turkish Airlines ·
 lh Lufthansa · ba British Airways · af Air France · kl KLM · lx Swiss · qf Qantas ·
