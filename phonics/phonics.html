@@ -19,7 +19,7 @@
     <!-- Sound board -->
     <div id="ph-board-view" style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%">
       <div class="ph-board" id="ph-board"></div>
-      <div class="ph-hint" id="ph-board-hint">Tap a sound to see it big and hear it · ⭐ = Dhamma said it!</div>
+      <div class="ph-hint" id="ph-board-hint">Tap a sound → watch the teacher say it → your turn! · ⭐ = Dhamma said it</div>
     </div>
 
     <!-- Blend It -->
@@ -30,7 +30,7 @@
         <div class="bl-letters" id="bl-letters"></div>
         <div class="bl-word" id="bl-word"></div>
         <div class="bl-row">
-          <button class="phf-btn sound" onclick="blSoundOut()">🔊 Sound it out</button>
+          <button class="phf-btn sound" onclick="blSoundOut()">👉 Sound it out</button>
           <button class="phf-btn word" id="bl-blend-btn" onclick="blBlend()">🧩 Blend it!</button>
           <button class="phf-btn me" id="bl-next-btn" onclick="blNext()">Next ▶</button>
         </div>
@@ -40,7 +40,7 @@
     <!-- Find the Sound -->
     <div id="ph-find-view" class="hidden">
       <div class="fs-card" id="fs-card">
-        <div class="fs-q" id="fs-q">Listen… which sound is it?</div>
+        <div class="fs-q" id="fs-q">Listen to the word… which sound can you hear?</div>
         <button class="fs-ear" onclick="fsReplay()" title="Hear it again">👂</button>
         <div class="fs-opts" id="fs-opts"></div>
         <div class="fs-stars" id="fs-stars"></div>
@@ -55,17 +55,24 @@
   <button class="phf-close" onclick="phfClose()">✕</button>
   <button class="phf-nav prev" onclick="phfStep(-1)">‹</button>
   <button class="phf-nav next" onclick="phfStep(1)">›</button>
-  <div class="phf-letter" id="phf-letter" onclick="phfSound()">s</div>
+  <div class="phf-letter" id="phf-letter" onclick="phfTeacher()">s</div>
   <div class="phf-word" onclick="phfWord()"><span class="phf-pic" id="phf-pic">🐍</span><span class="phf-kw" id="phf-kw">snake</span></div>
   <div class="phf-btns">
-    <button class="phf-btn sound" onclick="phfSound()">🔊 Sound</button>
-    <button class="phf-btn word" onclick="phfWord()">🗣️ Sound + Word</button>
+    <button class="phf-btn sound" onclick="phfTeacher()">👩‍🏫 Watch <span id="phf-teacher-name">Miss Phonics</span></button>
+    <button class="phf-btn word" onclick="phfWord()">🗣️ Say the word</button>
+    <button class="phf-btn sound hidden" id="phf-mysound" onclick="phfSound()">🔊 Our sound</button>
     <button class="phf-btn me" id="phf-me" onclick="phfMyTurn()">🎤 My turn!</button>
   </div>
   <div class="phf-status" id="phf-status"></div>
+  <div class="hidden" id="phf-video">
+    <div class="phf-video-box">
+      <iframe id="phf-video-frame" title="Phonics teacher video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+      <div class="phf-video-bar"><span id="phf-video-credit"></span><button onclick="phVideoClose()">✕ Close video</button></div>
+    </div>
+  </div>
   <div class="phf-parent hidden" id="phf-parent">
-    <button onclick="phfRecordOverride()">🎙️ Record teacher sound</button>
-    <button onclick="phfResetOverride()">↺ Use built-in sound</button>
+    <button onclick="phfRecordOverride()">🎙️ Record this sound (parent)</button>
+    <button onclick="phfResetOverride()">🗑️ Delete recording</button>
     <span class="tag" id="phf-override-tag"></span>
   </div>
 </div>

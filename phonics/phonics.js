@@ -1,6 +1,7 @@
 // ===================== PHONICS (Twinkl Level 2 & 3, as used in ISC EY3) =====================
-// Built-in sounds: generated British-English voice (vowels & unvoiced sounds) + held hums (m, n, ng, l, r, v, z, th, w, y),
-// each checked for length / voicing. Parents can replace any sound with their own recording (⚙️ Parent mode).
+// NO computer-generated letter sounds. Each sound is taught by a real UK phonics teacher (YouTube embed, verified embeddable):
+// Miss Phonics (youtube.com/@MissPhonics, follows the Twinkl Level 2 order) and Miss Ellis (ure, er).
+// Picture words are read by the device voice (whole words are reliable). Parents can record their own sound (⚙️).
 // {x} in a keyword marks the letters that make the sound.
 const PH_LEVELS = {
   2: [
@@ -37,6 +38,10 @@ const PH_WORDS = {
       ['l|igh|t','💡'],['b|oa|t','⛵'],['g|oa|t','🐐'],['m|oo|n','🌕'],['b|oo2|k','📖'],['c|ar','🚗'],['s|t|ar','⭐'],['f|or|k','🍴'],
       ['c|or|n','🌽'],['c|ow','🐄'],['c|oi|n','🪙'],['ch|air','🪑'],['h|air','💇'],['m|o|th','🦋'],['Ch|i|p','👦']]
 };
+const PH_VIDEO = {s:'-zVmn8APPzE',a:'EJ_W2ixU7TA',t:'HfH8jEavU3Y',p:'lriIUNwh6bc',i:'ucpMqBKrJz8',n:'1HoscIJDJ2Y',m:'bERDmffRz3E',d:'mDS1w7HxkYE',g:'8OIiKtG-boY',o:'3qFNtt51iQg',c:'yDuD2VLAYRA',k:'xb22PAGvY78',ck:'aSxFsW4oU9g',e:'OyaCEklnSRI',u:'pWa8_Y16bsg',r:'0J0NEzTQ2EQ',h:'sQV1fQRxCqI',b:'nJbvFVzHP50',f:'LcSIdQFr9OE',l:'-GN8Pals5Rg',ff:'YvunCTJ61ek',ll:'bsMSShSWWmo',ss:'VDmSWVjDh-0',j:'vJ6mjU6VJUU',v:'ST4fM_S6AAQ',w:'XBQ7UQ65bLY',x:'FsSmBs0yEpk',y:'59OnNTd3MsI',z:'rZ_h0ptpKY8',zz:'fPWEtQV54JU',qu:'gMxs2AaY07s',ch:'_RaZ4UwNrQQ',sh:'4p2KXlFbog0',th:'2PWNtUYMeYk',ng:'WYKS5_t-hF8',ai:'4OBxSUMWmbM',ee:'eMe0W5wBPWg',igh:'_qwNndwKjDk',oa:'35rm12WzgXM',oo:'4Er3VjsIOm8',oo2:'npn6aEZoPAE',ar:'0CcGlX-QUJY',or:'OariKFwxOmI',ur:'agwfL-GWe4k',ow:'5bk1ApbWfcs',oi:'IrEakBzHzoY',ear:'2F9DxP4Fi7M',air:'nAh0nZE7pxo',ure:'H_5Zlo5zNTc',er:'1smOOzWnMKk'};
+const PH_TEACHER = id => (id === 'ure' || id === 'er') ? 'Miss Ellis' : 'Miss Phonics';
+// which video for a board item: by grapheme (c / k / ck / ff… each have their own video), oo-short and z-in-pigs special
+function phVideoFor(it) { if (it.id === 'oo2') return PH_VIDEO.oo2; if (it.g === 's' && it.id === 'z') return PH_VIDEO.z; if (it.id === 'thv') return PH_VIDEO.th; return PH_VIDEO[it.g] || PH_VIDEO[it.id]; }
 const PH_GMAP = { c:'k', ck:'k', ff:'f', ll:'l', ss:'s', zz:'z' };
 const phSoundId = gr => { const g = gr.toLowerCase(); return PH_GMAP[g] || g; };
 const phShow = gr => gr.replace(/2$/, '');
@@ -65,10 +70,11 @@ function phPlayURL(url) {
     } catch (e) { res(); }
   });
 }
-function phPlay(id) {
-  const url = phOverrideURL[id] || PH_SOUNDS[id];
+function phPlay(id) {            // only a parent's own recording — never a generated sound
+  const url = phOverrideURL[id];
   return url ? phPlayURL(url) : Promise.resolve();
 }
+const phHasRec = id => !!phOverrideURL[id];
 let phVoice = null;
 function phPickVoice() {
   const vs = speechSynthesis.getVoices();
@@ -87,7 +93,7 @@ function phSay(text, rate = 0.85) {
     } catch (e) { res(); }
   });
 }
-function phStopAll() { phSeq++; try { speechSynthesis.cancel(); } catch (e) {} if (phCurAudio) phCurAudio.pause(); }
+function phStopAll() { phSeq++; try { speechSynthesis.cancel(); } catch (e) {} if (phCurAudio) phCurAudio.pause(); phVideoClose(); }
 
 // ---------- parent recordings (IndexedDB, this device only) ----------
 let phDB = null;
@@ -180,7 +186,7 @@ function alertless(msg) {          // tiny toast instead of alert() (alerts bloc
 function phKwHTML(w) { return w.replace(/\{(.+?)\}/, '<b>$1</b>'); }
 function phKwText(w) { return w.replace(/[{}]/g, '').replace('-', ' '); }
 function phfOpen(i) {
-  phIdx = i; const it = PH_LEVELS[phLevel][i];
+  phStopAll(); phIdx = i; const it = PH_LEVELS[phLevel][i];
   const f = document.getElementById('ph-focus');
   f.classList.remove('hidden'); f.classList.toggle('l3', phLevel === 3);
   document.getElementById('phf-level').textContent = 'Level ' + phLevel + ' · ' + (i + 1) + '/' + PH_LEVELS[phLevel].length;
@@ -188,41 +194,38 @@ function phfOpen(i) {
   document.getElementById('phf-pic').textContent = it.p;
   document.getElementById('phf-kw').innerHTML = phKwHTML(it.w);
   document.getElementById('phf-status').textContent = '';
+  document.getElementById('phf-teacher-name').textContent = PH_TEACHER(it.id);
+  document.getElementById('phf-mysound').classList.toggle('hidden', !phHasRec(it.id));
   document.getElementById('phf-parent').classList.toggle('hidden', !phParent);
-  document.getElementById('phf-override-tag').textContent = phOverrideURL[it.id] ? '✔ using your recording' : '';
-  phfIntro();
+  document.getElementById('phf-override-tag').textContent = phHasRec(it.id) ? '✔ your recording saved' : '';
 }
 function phfClose() { phStopAll(); document.getElementById('ph-focus').classList.add('hidden'); phRenderBoard(); }
-function phfStep(d) { const n = PH_LEVELS[phLevel].length; phStopAll(); phfOpen((phIdx + d + n) % n); }
+function phfStep(d) { const n = PH_LEVELS[phLevel].length; phfOpen((phIdx + d + n) % n); }
 function phPop() { const L = document.getElementById('phf-letter'); L.classList.remove('pop'); void L.offsetWidth; L.classList.add('pop'); }
-async function phfIntro() {          // "s … s … snake"  (same as the daily routine: sound, sound, picture word)
-  const my = ++phSeq; const it = PH_LEVELS[phLevel][phIdx];
-  await phWait(250); if (my !== phSeq) return;
-  phPop(); await phPlay(it.id); if (my !== phSeq) return;
-  await phWait(450); if (my !== phSeq) return;
-  phPop(); await phPlay(it.id); if (my !== phSeq) return;
-  await phWait(450); if (my !== phSeq) return;
-  await phSay(phKwText(it.w));
+function phfTeacher() {
+  phStopAll(); const it = PH_LEVELS[phLevel][phIdx]; const id = phVideoFor(it);
+  const box = document.getElementById('phf-video'); box.classList.remove('hidden');
+  document.getElementById('phf-video-frame').src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&modestbranding=1&playsinline=1';
+  document.getElementById('phf-video-credit').textContent = '▶ ' + PH_TEACHER(it.id) + ' · YouTube';
 }
-async function phfSound() { const my = ++phSeq; phPop(); await phPlay(PH_LEVELS[phLevel][phIdx].id); }
-async function phfWord() {
-  const my = ++phSeq; const it = PH_LEVELS[phLevel][phIdx];
-  phPop(); await phPlay(it.id); if (my !== phSeq) return; await phWait(350); if (my !== phSeq) return;
-  await phSay(phKwText(it.w));
+function phVideoClose() {
+  const box = document.getElementById('phf-video'); if (!box) return;
+  box.classList.add('hidden'); const fr = document.getElementById('phf-video-frame'); if (fr.src) fr.src = '';
 }
+async function phfSound() { ++phSeq; phPop(); await phPlay(PH_LEVELS[phLevel][phIdx].id); }
+async function phfWord() { ++phSeq; phPop(); await phSay(phKwText(PH_LEVELS[phLevel][phIdx].w)); }
 async function phfMyTurn() {
   const my = ++phSeq; const it = PH_LEVELS[phLevel][phIdx];
   const st = document.getElementById('phf-status'); const btn = document.getElementById('phf-me');
-  st.textContent = '👂 Listen first…'; phPop(); await phPlay(it.id); if (my !== phSeq) return;
-  await phWait(300); playDing();
-  st.textContent = '🎤 Your turn, Dhamma! Say it!'; btn.classList.add('rec'); btn.disabled = true;
+  playDing(); phPop();
+  st.textContent = '🎤 Your turn, Dhamma! Say the sound  "' + it.g + '"'; btn.classList.add('rec'); btn.disabled = true;
   const blob = await phRecord(2200);
   btn.classList.remove('rec'); btn.disabled = false; if (my !== phSeq) return;
   if (blob) {
-    st.textContent = '🔁 This is YOU…'; await phPlayURL(URL.createObjectURL(blob)); if (my !== phSeq) return;
-    await phWait(250); st.textContent = '👩‍🏫 …and this is the sound:'; phPop(); await phPlay(it.id); if (my !== phSeq) return;
+    st.textContent = '🔁 Listen to YOU…'; await phPlayURL(URL.createObjectURL(blob)); if (my !== phSeq) return;
+    if (phHasRec(it.id)) { await phWait(250); st.textContent = '👩 …and Mummy/Daddy:'; await phPlay(it.id); if (my !== phSeq) return; }
   } else {
-    await phWait(1800);              // no microphone: just give thinking time
+    await phWait(1800);
   }
   st.textContent = '⭐ Great job, Dhamma! ⭐'; fireConfetti();
   phDone.add(phLevel + ':' + phIdx); localStorage.setItem('ph_done', JSON.stringify([...phDone]));
@@ -234,18 +237,19 @@ async function phfRecordOverride() {
   const blob = await phRecord(1800);
   if (!blob) { st.textContent = '⚠️ No microphone available'; return; }
   await phSaveOverride(it.id, blob); phOverrideURL[it.id] = URL.createObjectURL(blob); delete phAudioCache[phOverrideURL[it.id]];
-  document.getElementById('phf-override-tag').textContent = '✔ using your recording';
+  document.getElementById('phf-override-tag').textContent = '✔ your recording saved';
+  document.getElementById('phf-mysound').classList.remove('hidden');
   st.textContent = '✅ Saved on this device — playing it back'; await phPlay(it.id);
 }
 async function phfResetOverride() {
   const it = PH_LEVELS[phLevel][phIdx]; await phDeleteOverride(it.id); delete phOverrideURL[it.id];
-  document.getElementById('phf-override-tag').textContent = ''; document.getElementById('phf-status').textContent = '↺ Built-in sound';
-  phfSound();
+  document.getElementById('phf-override-tag').textContent = ''; document.getElementById('phf-status').textContent = '🗑️ Recording deleted';
+  document.getElementById('phf-mysound').classList.add('hidden');
 }
 document.addEventListener('keydown', e => {
   if (document.getElementById('ph-focus').classList.contains('hidden')) return;
   if (e.key === 'ArrowRight') phfStep(1); else if (e.key === 'ArrowLeft') phfStep(-1);
-  else if (e.key === 'Escape') phfClose(); else if (e.key === ' ') { e.preventDefault(); phfSound(); }
+  else if (e.key === 'Escape') phfClose(); else if (e.key === ' ') { e.preventDefault(); phfWord(); }
 });
 
 // ---------- Blend It! ----------
@@ -263,33 +267,43 @@ function blShow() {
     (phShow(g).length > 1 ? '<span class="dash"></span>' : '<span class="dot"></span>') + '</span></div>').join('');
 }
 function blLight(i) { document.querySelectorAll('.bl-gr').forEach((el, j) => el.classList.toggle('lit', j === i)); }
-async function blTap(i) { ++phSeq; const g = blList[blI][0].split('|')[i]; blLight(i); await phPlay(phSoundId(g)); }
-async function blSoundOut() {
+async function blTap(i) {          // Dhamma says each sound himself (parent recording plays if there is one)
+  ++phSeq; const g = blList[blI][0].split('|')[i]; blLight(i);
+  const id = phSoundId(g); if (phHasRec(id)) await phPlay(id);
+}
+async function blSoundOut() {      // point to each sound in turn, left to right, for Dhamma to say
   const my = ++phSeq; const grs = blList[blI][0].split('|');
-  for (let i = 0; i < grs.length; i++) { blLight(i); await phPlay(phSoundId(grs[i])); if (my !== phSeq) return; await phWait(500); if (my !== phSeq) return; }
+  for (let i = 0; i < grs.length; i++) { blLight(i); const id = phSoundId(grs[i]); if (phHasRec(id)) await phPlay(id); if (my !== phSeq) return; await phWait(1100); if (my !== phSeq) return; }
   blLight(-1);
 }
 async function blBlend() {
   const my = ++phSeq; const [w, pic] = blList[blI]; const grs = w.split('|');
-  for (let i = 0; i < grs.length; i++) { blLight(i); await phPlay(phSoundId(grs[i])); if (my !== phSeq) return; await phWait(120); }
-  blLight(-1); await phWait(250); if (my !== phSeq) return;
+  for (let i = 0; i < grs.length; i++) { blLight(i); await phWait(380); if (my !== phSeq) return; }
+  blLight(-1);
   const word = grs.map(phShow).join('');
   const P = document.getElementById('bl-pic'); P.textContent = pic; P.classList.add('shown');
   document.getElementById('bl-word').textContent = word;
-  await phSay(word, 0.8);
+  await phSay(word.toLowerCase() === 'chip' && word[0] === 'C' ? 'Chip' : word, 0.8);
   if (!blRevealed) { blRevealed = true; fireConfetti(); }
 }
 function blNext() { phStopAll(); if (blI < blList.length - 1) { blI++; blShow(); } else blStart(); }
 
-// ---------- Find the Sound ----------
+// ---------- Find the Sound: hear a picture WORD, find its sound ----------
+// sounds actually heard in each picture word (so Find the Sound never offers a "wrong" choice that is really in the word)
+const PH_WORD_SOUNDS = {
+  snake:'s n ai k', apple:'a p l', tea:'t ee', puppy:'p u ee', insect:'i n s e k t', nut:'n u t', meatballs:'m ee t b or l z', drum:'d r u m',
+  girl:'g ur l', orange:'o r i n j', caterpillar:'k a t er p i l er', kite:'k igh t', duck:'d u k', egg:'e g', umbrella:'u m b r e l er',
+  robot:'r oa b o t', house:'h ow s', bat:'b a t', fairy:'f air ee', lolly:'l o ee', off:'o f', bell:'b e l', kiss:'k i s', pigs:'p i g z',
+  jet:'j e t', vest:'v e s t', 'yo yo':'y oa', waves:'w ai v z', box:'b o k s x', zigzag:'z i g a', buzz:'b u z', queen:'qu k w ee n',
+  chick:'ch i k', sheep:'sh ee p', feather:'f e thv th er', moth:'m o th thv', ring:'r i ng', snail:'s n ai l', cheese:'ch ee z',
+  knight:'n igh t', boat:'b oa t', moon:'m oo n', book:'b oo2 oo k', star:'s t ar', fork:'f or k', purse:'p ur s', clown:'k l ow n',
+  coin:'k oi n', ear:'ear', chair:'ch air', treasure:'t r e ure er', pepper:'p e er'
+};
 let fsPool = [], fsRound = 0, fsTarget = null, fsStars = 0, fsTries = 0;
 const FS_ROUNDS = 10;
 function fsBuildPool() {
-  const seen = new Set(), shown = new Set(), pool = [];
-  PH_LEVELS[phLevel].forEach(it => {
-    if (seen.has(it.id) || shown.has(it.g) || it.id === 'thv' || it.id === 'oo2' || (it.g === 's' && it.id === 'z')) return;
-    seen.add(it.id); shown.add(it.g); pool.push(it);
-  });
+  const shown = new Set(), pool = [];
+  PH_LEVELS[phLevel].forEach(it => { if (shown.has(it.g)) return; shown.add(it.g); pool.push(it); });
   return pool;
 }
 function fsStart() { fsPool = fsBuildPool(); fsRound = 0; fsStars = 0; document.getElementById('fs-stars').textContent = ''; fsNext(); }
@@ -297,24 +311,28 @@ function fsNext() {
   fsTries = 0; fsRound++;
   if (fsRound > FS_ROUNDS) { fsFinish(); return; }
   fsTarget = fsPool[Math.floor(Math.random() * fsPool.length)];
-  const opts = phShuffle([fsTarget, ...phShuffle(fsPool.filter(x => x.id !== fsTarget.id)).slice(0, 3)]);
-  document.getElementById('fs-q').textContent = 'Sound ' + fsRound + ' of ' + FS_ROUNDS + ' — which one is it?';
+  const word = phKwText(fsTarget.w).toLowerCase();
+  // distractors must not appear anywhere in the word (e.g. no "ch" for "cheese")
+  const heard = new Set((PH_WORD_SOUNDS[word] || '').split(' '));
+  const others = phShuffle(fsPool.filter(x => x.g !== fsTarget.g && x.id !== fsTarget.id && !heard.has(x.id) && !word.includes(x.g))).slice(0, 3);
+  const opts = phShuffle([fsTarget, ...others]);
+  document.getElementById('fs-q').textContent = 'Word ' + fsRound + ' of ' + FS_ROUNDS + ' — which sound can you hear?';
   document.getElementById('fs-opts').innerHTML = opts.map(o =>
-    '<button class="fs-opt" data-id="' + o.id + '" onclick="fsPick(this)">' + o.g + '</button>').join('');
+    '<button class="fs-opt" data-g="' + o.g + '" onclick="fsPick(this)">' + o.g + '</button>').join('');
   setTimeout(fsReplay, 400);
 }
-function fsReplay() { ++phSeq; if (fsTarget) phPlay(fsTarget.id); }
+function fsReplay() { ++phSeq; if (fsTarget) phSay(phKwText(fsTarget.w), 0.75); }
 async function fsPick(el) {
   if (el.classList.contains('right') || el.classList.contains('wrong')) return;
   const my = ++phSeq;
-  if (el.dataset.id === fsTarget.id) {
+  if (el.dataset.g === fsTarget.g) {
     el.classList.add('right'); playDing();
     if (fsTries === 0) { fsStars++; document.getElementById('fs-stars').textContent = '⭐'.repeat(fsStars); }
-    await phWait(350); const it = fsTarget; await phPlay(it.id); if (my !== phSeq) return;
-    await phWait(200); await phSay(phKwText(it.w)); if (my !== phSeq) return;
-    await phWait(400); fsNext();
+    document.getElementById('fs-q').innerHTML = fsTarget.p + '  ' + phKwHTML(fsTarget.w);
+    await phWait(300); await phSay(phKwText(fsTarget.w), 0.8); if (my !== phSeq) return;
+    await phWait(900); fsNext();
   } else {
-    fsTries++; el.classList.add('wrong'); await phWait(450); if (my !== phSeq) return; phPlay(fsTarget.id);
+    fsTries++; el.classList.add('wrong'); await phWait(450); if (my !== phSeq) return; phSay(phKwText(fsTarget.w), 0.7);
   }
 }
 function fsFinish() {
