@@ -1,0 +1,71 @@
+<!-- PHONICS -->
+<div id="screen-phonics" class="screen hidden">
+  <div class="ph-wrap">
+    <div class="ph-top">
+      <button class="ph-icon-btn" onclick="phHome()" title="Home">🏠</button>
+      <div class="ph-title">🔤 <span>Phonics Fun</span> with Dhamma</div>
+      <button class="ph-icon-btn" id="ph-parent-btn" onclick="phToggleParent()" title="Parent mode: record your own sounds">⚙️</button>
+    </div>
+    <div class="ph-levels">
+      <button class="ph-level l2" id="ph-lv2" onclick="phSetLevel(2)">Level 2<small>s a t p i n…</small></button>
+      <button class="ph-level l3" id="ph-lv3" onclick="phSetLevel(3)">Level 3<small>j v w… ai ee igh</small></button>
+    </div>
+    <div class="ph-acts">
+      <button class="ph-act" id="ph-act-board" onclick="phSetAct('board')">🔊 Sound Board</button>
+      <button class="ph-act" id="ph-act-blend" onclick="phSetAct('blend')">🧩 Blend It!</button>
+      <button class="ph-act" id="ph-act-find" onclick="phSetAct('find')">👂 Find the Sound</button>
+    </div>
+
+    <!-- Sound board -->
+    <div id="ph-board-view" style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%">
+      <div class="ph-board" id="ph-board"></div>
+      <div class="ph-hint" id="ph-board-hint">Tap a sound to see it big and hear it · ⭐ = Dhamma said it!</div>
+    </div>
+
+    <!-- Blend It -->
+    <div id="ph-blend-view" class="hidden">
+      <div class="bl-card" id="bl-card">
+        <div class="bl-count" id="bl-count">1 / 10</div>
+        <div class="bl-pic" id="bl-pic">❓</div>
+        <div class="bl-letters" id="bl-letters"></div>
+        <div class="bl-word" id="bl-word"></div>
+        <div class="bl-row">
+          <button class="phf-btn sound" onclick="blSoundOut()">🔊 Sound it out</button>
+          <button class="phf-btn word" id="bl-blend-btn" onclick="blBlend()">🧩 Blend it!</button>
+          <button class="phf-btn me" id="bl-next-btn" onclick="blNext()">Next ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Find the Sound -->
+    <div id="ph-find-view" class="hidden">
+      <div class="fs-card" id="fs-card">
+        <div class="fs-q" id="fs-q">Listen… which sound is it?</div>
+        <button class="fs-ear" onclick="fsReplay()" title="Hear it again">👂</button>
+        <div class="fs-opts" id="fs-opts"></div>
+        <div class="fs-stars" id="fs-stars"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PHONICS full-screen letter -->
+<div id="ph-focus" class="hidden">
+  <div class="phf-level" id="phf-level">Level 2</div>
+  <button class="phf-close" onclick="phfClose()">✕</button>
+  <button class="phf-nav prev" onclick="phfStep(-1)">‹</button>
+  <button class="phf-nav next" onclick="phfStep(1)">›</button>
+  <div class="phf-letter" id="phf-letter" onclick="phfSound()">s</div>
+  <div class="phf-word" onclick="phfWord()"><span class="phf-pic" id="phf-pic">🐍</span><span class="phf-kw" id="phf-kw">snake</span></div>
+  <div class="phf-btns">
+    <button class="phf-btn sound" onclick="phfSound()">🔊 Sound</button>
+    <button class="phf-btn word" onclick="phfWord()">🗣️ Sound + Word</button>
+    <button class="phf-btn me" id="phf-me" onclick="phfMyTurn()">🎤 My turn!</button>
+  </div>
+  <div class="phf-status" id="phf-status"></div>
+  <div class="phf-parent hidden" id="phf-parent">
+    <button onclick="phfRecordOverride()">🎙️ Record teacher sound</button>
+    <button onclick="phfResetOverride()">↺ Use built-in sound</button>
+    <span class="tag" id="phf-override-tag"></span>
+  </div>
+</div>
